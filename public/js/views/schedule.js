@@ -61,7 +61,7 @@ export async function render(ctx) {
         <div><b>${fmt.dmShort(monday)} — ${fmt.dmShort(addDays(monday, 6))}</b><div class="xs faint">${days[0].week}-я неделя · ${days[0].parity === 'odd' ? 'нечетная' : 'четная'} · ${esc(data.group)}</div></div>
         <a class="icon-btn" href="#/schedule/${nextW}" aria-label="Следующая неделя">${icon('chevronRight')}</a></div>
       <div class="row">${sel !== todayISO() ? `<a class="btn sm ghost" href="#/schedule">Сегодня</a>` : ''}
-        <a class="btn sm soft" href="/api/schedule.ics" download>${icon('calendarPlus', 'sm')} <span>В календарь</span></a></div>
+        <a class="btn sm soft" href="/api/schedule.ics" download>${icon('download', 'sm')} <span>Экспорт</span></a></div>
     </div>
     ${changes ? `<div class="chip warn" style="justify-self:start">${icon('alert', 'sm')} На этой неделе ${changes} ${plural(changes, 'изменение', 'изменения', 'изменений')}</div>` : ''}
     <div class="sched-mobile stack">

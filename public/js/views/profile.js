@@ -23,7 +23,7 @@ export async function render(ctx) {
           <dt>Форма</dt><dd>${esc(u.study_form)}, ${esc(u.funding.toLowerCase())}</dd></dl></section>
       <section class="card"><div class="card-h"><h2>Личные данные</h2><span class="chip">${icon('lock', 'sm')} зашифрованы</span></div>
         <dl class="kv"><dt>Зачетная книжка</dt><dd>${masked(u.record_book)}</dd><dt>E-mail</dt><dd>${masked(u.email)}</dd><dt>Телефон</dt><dd>${masked(u.phone)}</dd>
-        <dt>Дата рождения</dt><dd>${masked(u.birth_date ? new Date(u.birth_date).toLocaleDateString('ru-RU') : '')}</dd><dt>Куратор</dt><dd>${esc(u.curator || '—')}</dd><dt>Стипендия</dt><dd>${esc(u.stipend || '—')}</dd></dl>
+        <dt>Дата рождения</dt><dd>${masked(u.birth_date ? new Date(u.birth_date).toLocaleDateString('ru-RU') : '')}</dd><dt>Куратор</dt><dd>${esc(u.curator || '—')}</dd>${u.funding === 'Бюджет' ? `<dt>Стипендия</dt><dd>${esc(u.stipend || '—')}</dd>` : ''}</dl>
         <p class="xs faint" style="margin-top:10px">Нажмите на скрытое поле, чтобы показать. В базе эти данные хранятся в зашифрованном виде (AES-256-GCM).</p></section>`
       : `<section class="card"><div class="profile-head"><div class="avatar">${esc(initials(u))}</div><div><h2>${esc(u.last_name)} ${esc(u.first_name)} ${esc(u.middle_name || '')}</h2><p class="muted">${esc(u.position || 'Сотрудник деканата')}</p></div></div></section>`}
       <section class="card" id="look"><h2 style="font-size:17px;margin-bottom:12px">Оформление</h2>

@@ -16,7 +16,7 @@ const KNOWLEDGE = `
 - Шкала: 85+ — «отлично», 70–84 — «хорошо», 55–69 — «удовлетворительно».
 - Пересдачи назначают деканат и кафедра сами, заявление не нужно: дата, время и аудитория появляются в расписании и на главной. Если обычные пересдачи использованы — можно подать заявление «Ректорская пересдача».
 - Пропуски: пара = 2 академических часа. Неуважительные пропуски: 30 ч (15 пар) — выговор, 60 ч — отчисление. Пропуски по справке не учитываются.
-- Проходы через турникеты (СКУД) видны в разделе «Кампус».
+- Проходы через турникеты (СКУД) видны в разделе «Посещаемость».
 - Академическая стипендия назначается по итогам сессии студентам бюджета без троек и долгов; повышенная — при сессии на «отлично» и активности.
 - Материальная помощь рассматривается стипендиальной комиссией раз в 2 недели.
 - Академический отпуск — до 2 лет, основания: медицинские, семейные, призыв.
@@ -44,11 +44,11 @@ const ruDay = (iso) => new Date(iso).toLocaleDateString('ru-RU', { weekday: 'lon
 function contextText(c) {
   const { st, g } = c;
   return [
-    `Студент: ${st.course} курс, группа ${st.group}, ${st.program}, ${st.funding.toLowerCase()}, текущий семестр ${g.semester}. Стипендия: ${st.stipend}.`,
+    `Студент: ${st.course} курс, группа ${st.group}, ${st.program}, ${st.funding.toLowerCase()}, текущий семестр ${g.semester}. ${st.funding === 'Бюджет' ? `Стипендия: ${st.stipend}.` : 'Обучение по договору.'}`,
     `Сегодня (${ruDay(c.todayS.date)}, ${c.todayS.week}-я неделя, ${c.todayS.parity === 'odd' ? 'нечетная' : 'четная'}): ${c.todayS.lessons.length ? c.todayS.lessons.map(fmtLesson).join('; ') : 'пар нет'}.`,
     `Неделя: ${c.week.slice(1).map((d) => `${ruDay(d.date)} — ${d.lessons.length ? d.lessons.map(fmtLesson).join('; ') : 'пар нет'}`).join(' | ')}.`,
     `Текущая успеваемость: ${g.current.map((x) => `${x.name} — ${x.earned}/${x.max_so_far} баллов (из ${x.sem_max} в семестре), ${x.control_label.toLowerCase()}, статус: ${x.label}`).join('; ')}.`,
-    `Средний балл за прошлые сессии: ${g.summary.gpa ?? 'сессий еще не было'}. Долги: ${g.debts.length ? g.debts.map((d) => d.name).join(', ') : 'нет'}. Прогноз стипендии: ${g.summary.stipend.title} — ${g.summary.stipend.text}`,
+    `Средний балл за прошлые сессии: ${g.summary.gpa ?? 'сессий еще не было'}. Долги: ${g.debts.length ? g.debts.map((d) => d.name).join(', ') : 'нет'}. ${g.summary.stipend ? `Прогноз стипендии: ${g.summary.stipend.title} — ${g.summary.stipend.text}` : ''}`,
     `Сессия: ${g.session.name} ${g.session.start}…${g.session.end}. Экзамены/зачеты: ${g.session.exams.map((e) => `${e.name} ${e.date.replace('T', ' ')} ${e.room}`).join('; ')}.`,
     `Дедлайны: ${c.deadlines.length ? c.deadlines.map((d) => `${d.title} (${d.discipline}) до ${d.due_at.replace('T', ' ').slice(0, 16)}`).join('; ') : 'нет'}.`,
     `Пересдачи: ${c.retakes.length ? c.retakes.map((r) => `${r.discipline} ${r.date} ${r.start}, ${r.room}`).join('; ') : 'нет'}.`,
@@ -76,8 +76,8 @@ function localAnswer(c, text) {
     if (ch.length) answer += `\n\nНа неделе есть изменения: ${ch.length}. Они подсвечены в расписании.`;
     actions.push({ label: 'Открыть расписание', href: '#/schedule' });
   } else if (has('стипенд')) {
-    answer = `Сейчас: ${c.st.stipend}. Прогноз на следующий семестр — «${c.g.summary.stipend.title}». ${c.g.summary.stipend.text}`;
-    actions.push(ACTIONS.stipend_cert);
+    answer = c.g.summary.stipend ? `Сейчас: ${c.st.stipend}. Прогноз на следующий семестр — «${c.g.summary.stipend.title}». ${c.g.summary.stipend.text}` : 'Вы учитесь по договору, академическая стипендия к вам не относится. Если нужна поддержка, можно подать заявление на материальную помощь.';
+    actions.push(c.g.summary.stipend ? ACTIONS.stipend_cert : ACTIONS.financial_aid);
   } else if (has('долг', 'пересда', 'хвост')) {
     if (c.retakes.length) {
       const r = c.retakes[0];
@@ -89,7 +89,7 @@ function localAnswer(c, text) {
     } else answer = 'Задолженностей и назначенных пересдач нет 🎉';
   } else if (has('пропус', 'прогул', 'выговор', 'отчисл')) {
     answer = `Неуважительных пропусков: ${c.abs.hours} ак. ч (${c.abs.hours / 2} пар). До выговора — ${Math.max(0, 30 - c.abs.hours)} ч, это ${Math.max(0, (30 - c.abs.hours) / 2)} пар. Пропуски по справке (${c.abs.excused_hours} ч) не учитываются.`;
-    actions.push({ label: 'Открыть «Кампус»', href: '#/campus' });
+    actions.push({ label: 'Открыть «Посещаемость»', href: '#/campus' });
   } else if (has('допуск', 'балл', 'успева', 'оценк', 'экзамен', 'сесси', 'автомат', 'зачет', 'зачет')) {
     const risk = c.g.current.filter((x) => x.status !== 'ok');
     answer = `Коротко по семестру:\n${c.g.current.map((x) => `• ${x.name}: ${x.earned} из ${x.max_so_far} возможных, ${x.label.toLowerCase()}`).join('\n')}`;

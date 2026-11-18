@@ -99,7 +99,7 @@ export async function render(ctx) {
       <div class="stack">
         ${nowCard(today, d.next_days)}
         <nav class="quick" aria-label="Быстрые действия">
-          <a href="#/requests/new/study_cert"><span class="ico">${icon('docs')}</span>Справка за минуту</a>
+          <a href="#/requests/new/study_cert"><span class="ico">${icon('docs')}</span>Справка</a>
           <a href="#/requests/new/appointment"><span class="ico">${icon('clock')}</span>Запись в деканат</a>
           <a href="#/grades"><span class="ico">${icon('trend')}</span>Мои баллы</a>
           <a href="#/requests/new/question"><span class="ico">${icon('message')}</span>Вопрос деканату</a>
@@ -117,7 +117,7 @@ export async function render(ctx) {
             <div class="stat"><b style="color:${g.risks ? 'var(--bad)' : 'var(--ok)'}">${g.risks}</b><span>в зоне риска</span></div>
             <div class="stat"><b style="color:${g.debts ? 'var(--bad)' : 'var(--ok)'}">${g.debts}</b><span>${plural(g.debts, 'долг', 'долга', 'долгов')}</span></div>
           </div>
-          <div class="stipend ${g.stipend.level}" style="margin-top:10px;padding:12px"><div class="ico">${icon('wallet')}</div><div><b>Стипендия: ${esc(g.stipend.title)}</b><div class="small muted">${esc(g.stipend.text)}</div></div></div>
+          ${g.stipend ? `<div class="stipend ${g.stipend.level}" style="margin-top:10px;padding:12px"><div class="ico">${icon('wallet')}</div><div><b>Стипендия: ${esc(g.stipend.title)}</b><div class="small muted">${esc(g.stipend.text)}</div></div>` : ''}</div>
           ${firstExam ? `<a class="li" href="#/grades/session" style="padding:12px 0 0;border:0;min-height:0"><div class="ico">${icon('target')}</div><div class="grow"><div class="t">${esc(d.session.name)}</div><div class="s">Первый экзамен ${fmt.dmShort(parseISO(firstExam.date))} · ${fmt.until(firstExam.date)}</div></div>${icon('chevronRight')}</a>` : ''}
         </section>
         <section class="card pad-0"><div class="card-h" style="padding:16px 16px 0"><h2>Заявки</h2><a href="#/requests">Все ${icon('chevronRight', 'sm')}</a></div>

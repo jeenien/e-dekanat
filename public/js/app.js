@@ -25,6 +25,10 @@ export function applyLook() {
   if (accent === 'navy') delete r.dataset.accent; else r.dataset.accent = accent;
   const dark = scheme === 'dark' || (scheme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#070b16' : '#eef1f7');
+  // Иконка вкладки тоже в цвет акцента
+  const hex = (ACCENTS.find(([k]) => k === accent) || ACCENTS[0])[1];
+  const fav = document.querySelector('link[rel="icon"]');
+  if (fav) fav.href = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect width="48" height="48" rx="14" fill="${hex}"/><ellipse cx="24" cy="24" rx="16" ry="7" fill="none" stroke="#fff" stroke-width="2.6" transform="rotate(-28 24 24)"/><circle cx="24" cy="24" r="5.5" fill="#fff"/><circle cx="37.2" cy="16.6" r="2.8" fill="#fff"/></svg>`);
   return { scheme, accent };
 }
 export function setLook({ scheme, accent }) {
@@ -39,7 +43,11 @@ export function toggleTheme() {
 applyLook();
 
 const CONCEPT = '';
-const LOGO = '<img src="/logo.svg" width="40" height="40" alt="">';
+// Логотип рисуется inline, чтобы перекрашиваться в выбранный акцентный цвет
+export const logoSvg = (size = 40) => `<svg width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true" class="logo-svg"><rect width="48" height="48" rx="14" style="fill:var(--fill)"/><ellipse cx="24" cy="24" rx="16" ry="7" fill="none" stroke="#fff" stroke-width="2.6" stroke-opacity=".9" transform="rotate(-28 24 24)"/><circle cx="24" cy="24" r="5.5" fill="#fff"/><circle cx="37.2" cy="16.6" r="2.8" fill="#fff"/></svg>`;
+const LOGO = logoSvg(40);
+// Фон страницы входа: медленно плывущие «стеклянные» волны (только CSS-анимация)
+const AUTH_BG = '<div class="auth-bg" aria-hidden="true"><i class="w1"></i><i class="w2"></i><i class="w3"></i><i class="w4"></i></div>';
 
 // ---------- Вход ----------
 const DEMO = [
@@ -50,18 +58,9 @@ const DEMO = [
 ];
 function renderLogin(message = '') {
   document.title = 'Вход — Орбита';
-  app.innerHTML = `<div class="auth">${CONCEPT}<div class="auth-wrap">
-    <aside class="auth-aside">
-      <h2>Весь деканат —<br><span>в одном экране</span></h2>
-      <p class="muted">Расписание с изменениями, баллы и прогноз сессии, справки за минуту и переписка с деканатом вместо очереди.</p>
-      ${[['calendar', 'Расписание, которое предупреждает', 'Отмены и переносы подсвечиваются и приходят уведомлением.'],
-         ['trend', 'Понятно, как дела с учебой', 'Сколько баллов до допуска и что нужно на экзамене для «отлично».'],
-         ['qr', 'Справка без очереди', 'Электронная справка с QR-кодом готова сразу.'],
-         ['sparkles', 'Помощник «Спроси Орбиту»', 'Отвечает на вопросы о вашей учебе и порядках вуза.']]
-        .map(([i, t, s]) => `<div class="feat"><div class="ico">${icon(i)}</div><div><b>${t}</b><div class="small muted">${s}</div></div></div>`).join('')}
-    </aside>
+  app.innerHTML = `<div class="auth">${AUTH_BG}<div class="auth-wrap">
     <main class="auth-card" id="main">
-      <div class="auth-hero"><img class="logo" src="/logo.svg" alt="Логотип «Орбита»"><h1>Орбита</h1><p>Личный кабинет студента вымышленного Университета «Горизонт»</p></div>
+      <div class="auth-hero"><span class="logo" role="img" aria-label="Логотип «Орбита»">${logoSvg(64)}</span><h1>Орбита</h1><p>Личный кабинет студента вымышленного Университета «Горизонт»</p></div>
       <form class="card" id="login-form" novalidate>
         ${message ? `<div class="form-error" role="alert">${esc(message)}</div>` : ''}
         <div class="field"><label for="login">Логин</label><input class="input" id="login" name="login" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
@@ -108,7 +107,7 @@ function renderLogin(message = '') {
 // В нижней панели телефона — 5 главных разделов; лента открывается колокольчиком сверху
 const NAV_STUDENT = [
   ['#/today', 'home', 'Сегодня'], ['#/schedule', 'calendar', 'Расписание'], ['#/grades', 'grades', 'Учеба'],
-  ['#/requests', 'docs', 'Заявки'], ['#/campus', 'pin', 'Кампус'],
+  ['#/requests', 'docs', 'Заявки'], ['#/campus', 'pin', 'Посещаемость'],
 ];
 const NAV_STAFF = [['#/staff', 'inbox', 'Заявки'], ['#/staff/students', 'users', 'Студенты'], ['#/staff/announce', 'megaphone', 'Объявления'], ['#/staff/schedule', 'calendar', 'Расписание'], ['#/profile', 'user', 'Профиль']];
 const nav = () => (state.user.role === 'staff' ? NAV_STAFF : NAV_STUDENT);
@@ -240,6 +239,7 @@ export async function logout() {
 }
 
 window.addEventListener('hashchange', route);
+window.addEventListener('scroll', () => document.querySelector('.topbar')?.classList.toggle('scrolled', window.scrollY > 4), { passive: true });
 window.addEventListener('orbita:logout', () => { if (state.user) { state.user = null; renderLogin('Сессия истекла — войдите снова'); } });
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && state.user) { e.preventDefault(); openPalette(state); }
