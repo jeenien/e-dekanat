@@ -117,7 +117,7 @@ export async function render(ctx) {
             <div class="stat"><b style="color:${g.risks ? 'var(--bad)' : 'var(--ok)'}">${g.risks}</b><span>в зоне риска</span></div>
             <div class="stat"><b style="color:${g.debts ? 'var(--bad)' : 'var(--ok)'}">${g.debts}</b><span>${plural(g.debts, 'долг', 'долга', 'долгов')}</span></div>
           </div>
-          ${g.stipend ? `<div class="stipend ${g.stipend.level}" style="margin-top:10px;padding:12px"><div class="ico">${icon('wallet')}</div><div><b>Стипендия: ${esc(g.stipend.title)}</b><div class="small muted">${esc(g.stipend.text)}</div></div>` : ''}</div>
+          ${u.funding === 'Бюджет' ? `<div class="row between" style="margin-top:10px;padding:12px 14px;border-radius:var(--r);background:var(--surface-2);border:1px solid var(--glass-border)"><span class="row" style="gap:8px">${icon('wallet')}<b>Стипендия</b></span><span class="chip ${u.stipend && u.stipend !== 'Не назначена' ? 'ok' : ''}">${esc(u.stipend && u.stipend !== 'Не назначена' ? u.stipend : 'нет')}</span></div>` : ''}
           ${firstExam ? `<a class="li" href="#/grades/session" style="padding:12px 0 0;border:0;min-height:0"><div class="ico">${icon('target')}</div><div class="grow"><div class="t">${esc(d.session.name)}</div><div class="s">Первый экзамен ${fmt.dmShort(parseISO(firstExam.date))} · ${fmt.until(firstExam.date)}</div></div>${icon('chevronRight')}</a>` : ''}
         </section>
         <section class="card pad-0"><div class="card-h" style="padding:16px 16px 0"><h2>Заявки</h2><a href="#/requests">Все ${icon('chevronRight', 'sm')}</a></div>
