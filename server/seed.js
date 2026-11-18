@@ -101,7 +101,7 @@ const STUDENTS = [
   {
     login: 'timur', last: 'Северцев', first: 'Тимур', middle: 'Андреевич',
     faculty: 'Экономический факультет', code: '38.03.01', program: 'Экономика', profile: 'Финансы и кредит',
-    course: 3, group: 'ЭК-31', form: 'Очная', funding: 'Контракт', year: 2024, stipend: 'Не назначена',
+    course: 3, group: 'ЭК-31', form: 'Очная', funding: 'Договор', year: 2024, stipend: 'Не назначена',
     curator: 'Лаптева Ольга Геннадьевна', book: '24-ЭК-1183', email: 't.severtsev@student.gorizont.example', phone: '+7 900 000-11-83', birth: '2006-09-02',
     skill: [0.45, 0.7, 0.82, 0.38, 0.6, 0.9],
     past: [['хорошо', 'удовлетворительно', 'зачтено', 'зачтено'], ['удовлетворительно', 'хорошо', 'зачтено', 'хорошо'], ['хорошо', 'удовлетворительно', 'отлично', 'зачтено'], ['хорошо', 'неудовлетворительно', 'хорошо', 'отлично']],
@@ -345,7 +345,7 @@ function seed(db) {
 
     rid = insReq.run(publicId('Z'), timur, 'stipend_cert', 'Справка о размере стипендии', JSON.stringify({ period: '6 месяцев', purpose: 'Для налогового вычета' }), 'rejected', ago(300), ago(280), null, staffName, null).lastInsertRowid;
     insEv.run(rid, 'status', 'submitted', 'student', null, null, ago(300));
-    insEv.run(rid, 'status', 'rejected', 'staff', staffName, 'Вы обучаетесь на контрактной основе, стипендия за этот период не начислялась. Если нужна справка об оплате обучения — напишите вопрос в деканат.', ago(280));
+    insEv.run(rid, 'status', 'rejected', 'staff', staffName, 'Вы обучаетесь по договору, стипендия за этот период не начислялась. Если нужна справка об оплате обучения — напишите вопрос в деканат.', ago(280));
   });
 }
 
