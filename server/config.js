@@ -7,8 +7,8 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // Ключ шифрования персональных полей (AES-256-GCM).
-// В продакшене задаётся через DATA_KEY (32 байта в base64).
-// Для локального запуска генерируется один раз и кладётся в data/ (папка в .gitignore).
+// В продакшене задается через DATA_KEY (32 байта в base64).
+// Для локального запуска генерируется один раз и кладется в data/ (папка в .gitignore).
 function loadDataKey() {
   if (process.env.DATA_KEY) {
     const k = Buffer.from(process.env.DATA_KEY, 'base64');

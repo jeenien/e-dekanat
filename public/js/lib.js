@@ -15,7 +15,7 @@ export async function api(path, { method = 'GET', body } = {}) {
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError(0, { error: navigator.onLine ? 'Сервер не отвечает. Попробуйте ещё раз.' : 'Нет подключения к интернету' });
+    throw new ApiError(0, { error: navigator.onLine ? 'Сервер не отвечает. Попробуйте еще раз.' : 'Нет подключения к интернету' });
   }
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && path !== '/auth/login') { window.dispatchEvent(new Event('orbita:logout')); }
@@ -100,5 +100,5 @@ export const STATUS_META = {
 export const statusChip = (r) => `<span class="chip ${STATUS_META[r.status]?.cls || ''}">${esc(r.status_label)}</span>`;
 export const markClass = (m) => ({ 'отлично': 'm5', 'хорошо': 'm4', 'удовлетворительно': 'm3', 'неудовлетворительно': 'm2', 'не зачтено': 'm2' }[m] || 'mz');
 export const markShort = (m) => ({ 'отлично': '5', 'хорошо': '4', 'удовлетворительно': '3', 'неудовлетворительно': '2', 'зачтено': 'зач', 'не зачтено': 'н/з' }[m] || m);
-export const kindClass = (k) => (/лекц/i.test(k) ? 'kind-lec' : /практ|семинар/i.test(k) ? 'kind-prac' : /лаб/i.test(k) ? 'kind-lab' : 'kind-other');
+export const kindClass = (k) => (/пересдач/i.test(k) ? 'kind-retake' : /лекц/i.test(k) ? 'kind-lec' : /практ|семинар/i.test(k) ? 'kind-prac' : /лаб/i.test(k) ? 'kind-lab' : 'kind-other');
 export const initials = (u) => `${(u.first_name || '?')[0]}${(u.last_name || '')[0] || ''}`;

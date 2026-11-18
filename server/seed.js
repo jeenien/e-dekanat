@@ -54,7 +54,7 @@ const GROUPS = {
       ['Введение в языкознание', 'Северина М. И.'],
       ['Практический курс английского языка', 'Доусон-Ильина К. П.'],
       ['Второй иностранный язык (немецкий)', 'Краус Е. А.'],
-      ['История России', 'Белозёров Г. Н.'],
+      ['История России', 'Белозеров Г. Н.'],
       ['Цифровая грамотность', 'Аристова Л. М.'],
       ['Физическая культура', 'Гордеев А. А.'],
     ],
@@ -77,7 +77,7 @@ const PAST = {
   'ЭК-31': {
     1: [['Микроэкономика', 'exam', 5], ['Высшая математика', 'exam', 5], ['История России', 'credit', 2], ['Английский язык', 'credit', 3]],
     2: [['Макроэкономика', 'exam', 5], ['Статистика', 'exam', 4], ['Философия', 'credit', 2], ['Английский язык', 'diff_credit', 3]],
-    3: [['Бухгалтерский учёт', 'exam', 5], ['Финансы', 'exam', 4], ['Менеджмент', 'diff_credit', 3], ['Правоведение', 'credit', 2]],
+    3: [['Бухгалтерский учет', 'exam', 5], ['Финансы', 'exam', 4], ['Менеджмент', 'diff_credit', 3], ['Правоведение', 'credit', 2]],
     4: [['Мировая экономика', 'exam', 4], ['Теория вероятностей и статистика', 'exam', 5], ['Деньги, кредит, банки', 'diff_credit', 3], ['Курсовая работа по экономике фирмы', 'coursework', 2]],
   },
   'ЛН-11': {},
@@ -116,9 +116,9 @@ const STUDENTS = [
 ];
 
 // Детерминированный генератор, чтобы данные не «прыгали» при пересоздании базы
-// Дата сдачи для прошедшего семестра k: нечётные (осенние) закрываются в январе, чётные — в июне
+// Дата сдачи для прошедшего семестра k: нечетные (осенние) закрываются в январе, четные — в июне
 function pastSemesterDate(startYear, currentSem, k, i) {
-  // Идём назад от последнего закрытого семестра: июнь/январь попеременно
+  // Идем назад от последнего закрытого семестра: июнь/январь попеременно
   let year = currentSem % 2 === 1 ? startYear : startYear + 1;
   let month = currentSem % 2 === 1 ? 5 : 0;
   for (let s = currentSem - 1; s > k; s--) {
@@ -171,7 +171,7 @@ function seed(db) {
       if (a) {
         const l = a.lessons[a.lessons.length - 1];
         insChange.run(g, a.date, l.pair, 'room', l.subject, l.kind, 'А-405', null, null, null, 'Аудитория на ремонте');
-        insNotif.run(`group:${g}`, 'schedule', `Смена аудитории: ${l.subject}`, `${a.offset === 0 ? 'Сегодня' : 'В ближайший учебный день'} занятие (${l.pair} пара) пройдёт в аудитории А-405 вместо ${l.room}.`, '#/schedule', 1, 0, 'Деканат', new Date(Date.now() - 3 * 3600e3).toISOString());
+        insNotif.run(`group:${g}`, 'schedule', `Смена аудитории: ${l.subject}`, `${a.offset === 0 ? 'Сегодня' : 'В ближайший учебный день'} занятие (${l.pair} пара) пройдет в аудитории А-405 вместо ${l.room}.`, '#/schedule', 1, 0, 'Деканат', new Date(Date.now() - 3 * 3600e3).toISOString());
       }
       const b = findLesson(g, (a ? a.offset : 0) + 1);
       if (b) {
@@ -237,8 +237,70 @@ function seed(db) {
       });
     }
 
-    // Задолженность Тимура: пересдача по прошлому семестру
-    // (в его прошлых оценках есть «неудовлетворительно» по теории вероятностей)
+    const uid = (login) => db.prepare('SELECT id FROM users WHERE login = ?').get(login).id;
+    const lessonsOn = (g, day) => db.prepare("SELECT * FROM lessons WHERE group_name=? AND weekday=? AND week IN ('all',?) ORDER BY pair").all(g, A.weekday(day), A.weekInfo(day).parity);
+    const cancelled = (g, date, pair) => Boolean(db.prepare("SELECT 1 FROM schedule_changes WHERE group_name=? AND date=? AND pair=? AND type='cancel'").get(g, date, pair));
+
+    // Пересдачу назначают деканат и кафедра: у Тимура долг по прошлому семестру
+    let rd = A.addDays(today, 2);
+    while (A.weekday(rd) > 5 || lessonsOn('ЭК-31', rd).some((l) => l.pair === 5)) rd = A.addDays(rd, 1);
+    db.prepare('INSERT INTO retakes (student_id, discipline, date, pair, room, examiner, attempt, set_by) VALUES (?,?,?,?,?,?,?,?)')
+      .run(uid('timur'), 'Теория вероятностей и статистика', A.isoDate(rd), 5, 'Э-214', 'Шахов И. Р.', 1, 'Ладогина О. В.');
+
+    // Пропуски: по 2 академических часа за пару. Уважительные (по справке) не учитываются в лимите.
+    const insAbs = db.prepare('INSERT OR IGNORE INTO absences (student_id, date, pair, subject, excused, note) VALUES (?,?,?,?,?,?)');
+    const plan = { anna: { group: 'ПИ-21', unexcused: 3, excused: 2 }, timur: { group: 'ЭК-31', unexcused: 12, excused: 2 }, nika: { group: 'ЛН-11', unexcused: 0, excused: 0 } };
+    const absentDays = {};
+    for (const [login, cfg] of Object.entries(plan)) {
+      const id = uid(login);
+      const slots = [];
+      for (let day = new Date(semStart); day < today; day = A.addDays(day, 1)) {
+        if (A.weekday(day) > 6) continue;
+        for (const l of lessonsOn(cfg.group, day)) slots.push({ date: A.isoDate(day), pair: l.pair, subject: l.subject });
+      }
+      const pick = (n, excused) => {
+        for (let k = 0; k < n && slots.length; k++) {
+          const sl = slots.splice(Math.floor(rand() * slots.length), 1)[0];
+          insAbs.run(id, sl.date, sl.pair, sl.subject, excused ? 1 : 0, excused ? 'По справке из поликлиники' : null);
+          (absentDays[login] ||= {})[sl.date] = ((absentDays[login] || {})[sl.date] || 0) + 1;
+        }
+      };
+      pick(cfg.unexcused, false);
+      // уважительные пропуски — подряд, как при болезни
+      if (cfg.excused) {
+        const start = slots[Math.floor(rand() * slots.length)];
+        const sameDay = slots.filter((x) => x.date === start.date).slice(0, cfg.excused);
+        for (const sl of sameDay) { insAbs.run(id, sl.date, sl.pair, sl.subject, 1, 'По справке из поликлиники'); (absentDays[login] ||= {})[sl.date] = 99; }
+      }
+    }
+
+    // Проходы через турникеты (СКУД) за последние 3 недели
+    const insPass = db.prepare('INSERT INTO campus_passes (user_id, at, direction, gate) VALUES (?,?,?,?)');
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+    const hm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    for (const [login, cfg] of Object.entries(plan)) {
+      const id = uid(login);
+      for (let i = 21; i >= 0; i--) {
+        const day = A.addDays(today, -i);
+        const date = A.isoDate(day);
+        const ls = lessonsOn(cfg.group, day).filter((l) => !cancelled(cfg.group, date, l.pair));
+        if (!ls.length || (absentDays[login] || {})[date] >= ls.length) continue;
+        const lateness = login === 'timur' ? Math.floor(rand() * 30) - 8 : -(5 + Math.floor(rand() * 20));
+        const inM = toMin(A.PAIRS[ls[0].pair][0]) + lateness;
+        const outM = toMin(A.PAIRS[ls[ls.length - 1].pair][1]) + 3 + Math.floor(rand() * (login === 'anna' ? 70 : 25));
+        const gateIn = ls[0].room.startsWith('Э') ? 'Корпус Э, турникет 1' : ls[0].room.startsWith('Г') ? 'Корпус Г, вход' : ls[0].room === 'Спорткомплекс' ? 'Спорткомплекс' : 'Корпус А, турникет 2';
+        if (i === 0 && inM > nowMin) continue;
+        insPass.run(id, `${date}T${hm(inM)}:00`, 'in', gateIn);
+        // иногда выходит на обед
+        if (ls.length >= 3 && rand() < 0.35 && (i > 0 || nowMin > 13 * 60 + 40)) {
+          insPass.run(id, `${date}T${hm(12 * 60 + 2 + Math.floor(rand() * 10))}:00`, 'out', gateIn);
+          insPass.run(id, `${date}T${hm(12 * 60 + 35 + Math.floor(rand() * 15))}:00`, 'in', gateIn);
+        }
+        if (i === 0 && outM > nowMin) continue; // сегодня еще в университете
+        insPass.run(id, `${date}T${hm(outM)}:00`, 'out', gateIn);
+      }
+    }
 
     // Дедлайны групп
     const insDl = db.prepare('INSERT INTO deadlines (group_name, discipline, title, due_at, kind) VALUES (?,?,?,?,?)');
@@ -255,12 +317,12 @@ function seed(db) {
 
     // Общие объявления
     const ago = (h) => new Date(Date.now() - h * 3600e3).toISOString();
-    insNotif.run('all', 'news', `${sess.name}: расписание опубликовано`, `Расписание экзаменов и консультаций уже в разделе «Успеваемость → Сессия». Зачётная неделя: ${sess.credits_week.map((x) => x.split('-').reverse().join('.')).join(' – ')}.`, '#/grades/session', 1, 1, 'Деканат', ago(30));
+    insNotif.run('all', 'news', `${sess.name}: расписание опубликовано`, `Расписание экзаменов и консультаций уже в разделе «Успеваемость → Сессия». Зачетная неделя: ${sess.credits_week.map((x) => x.split('-').reverse().join('.')).join(' – ')}.`, '#/grades/session', 1, 1, 'Деканат', ago(30));
     insNotif.run('all', 'news', 'Выбор дисциплин по выбору на весенний семестр', 'До конца месяца откройте раздел «Учебный план» и выберите два курса по выбору. Если не выбрать, курсы назначат автоматически.', null, 0, 0, 'Учебный офис', ago(52));
     insNotif.run('all', 'finance', 'Стипендия за текущий месяц перечислена', 'Выплата поступит на карту в течение двух рабочих дней. Справку о размере стипендии можно заказать онлайн.', '#/requests/new/stipend_cert', 0, 0, 'Бухгалтерия', ago(76));
-    insNotif.run('all', 'news', 'Зимний кампус: набор волонтёров', 'Студенческий совет ищет волонтёров на новогодний фестиваль. Волонтёрские часы учитываются в портфолио.', null, 0, 0, 'Студсовет', ago(120));
-    insNotif.run('faculty:Факультет информационных технологий', 'news', 'Хакатон факультета ИТ', 'Регистрация команд до пятницы. Призёры получают автомат по «Веб-разработке».', null, 0, 0, 'Деканат ФИТ', ago(8));
-    insNotif.run(`user:${timur}`, 'grades', 'Академическая задолженность', 'У вас задолженность по дисциплине «Теория вероятностей и статистика». Подайте заявление на пересдачу до конца месяца.', '#/requests/new/retake', 1, 0, 'Деканат', ago(5));
+    insNotif.run('all', 'news', 'Зимний кампус: набор волонтеров', 'Студенческий совет ищет волонтеров на новогодний фестиваль. Волонтерские часы учитываются в портфолио.', null, 0, 0, 'Студсовет', ago(120));
+    insNotif.run('faculty:Факультет информационных технологий', 'news', 'Хакатон факультета ИТ', 'Регистрация команд до пятницы. Призеры получают автомат по «Веб-разработке».', null, 0, 0, 'Деканат ФИТ', ago(8));
+    insNotif.run(`user:${timur}`, 'grades', 'Назначена пересдача', `«Теория вероятностей и статистика»: ${rd.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}, 15:30, аудитория Э-214. Пересдачу назначили деканат и кафедра — заявление не нужно.`, '#/schedule/' + A.isoDate(rd), 1, 1, 'Деканат', ago(5));
 
     // Заявки с историей
     const insReq = db.prepare('INSERT INTO requests (public_id, student_id, type, title, payload, status, created_at, updated_at, eta, assignee, doc_code) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
@@ -279,7 +341,7 @@ function seed(db) {
 
     rid = insReq.run(publicId('Z'), timur, 'individual_plan', 'Индивидуальный график', JSON.stringify({ reason: 'Работа по специальности', details: 'Работаю аналитиком на полставки, прошу свободное посещение по вторникам.' }), 'need_info', ago(50), ago(26), d(4), staffName, null).lastInsertRowid;
     insEv.run(rid, 'status', 'submitted', 'student', null, null, ago(50));
-    insEv.run(rid, 'status', 'need_info', 'staff', staffName, 'Пожалуйста, приложите справку с места работы с указанием графика. Её можно принести в деканат (каб. А-112) или отправить скан ответом сюда.', ago(26));
+    insEv.run(rid, 'status', 'need_info', 'staff', staffName, 'Пожалуйста, приложите справку с места работы с указанием графика. Ее можно принести в деканат (каб. А-112) или отправить скан ответом сюда.', ago(26));
 
     rid = insReq.run(publicId('Z'), timur, 'stipend_cert', 'Справка о размере стипендии', JSON.stringify({ period: '6 месяцев', purpose: 'Для налогового вычета' }), 'rejected', ago(300), ago(280), null, staffName, null).lastInsertRowid;
     insEv.run(rid, 'status', 'submitted', 'student', null, null, ago(300));

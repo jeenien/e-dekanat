@@ -105,6 +105,28 @@ CREATE TABLE IF NOT EXISTS audit_log (
   user_id INTEGER, action TEXT NOT NULL, detail TEXT, ip_hash TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS retakes (
+  id INTEGER PRIMARY KEY,
+  student_id INTEGER NOT NULL REFERENCES users(id),
+  discipline TEXT NOT NULL, date TEXT NOT NULL, pair INTEGER NOT NULL,
+  room TEXT NOT NULL, examiner TEXT NOT NULL, attempt INTEGER NOT NULL DEFAULT 1,
+  set_by TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS absences (
+  id INTEGER PRIMARY KEY,
+  student_id INTEGER NOT NULL REFERENCES users(id),
+  date TEXT NOT NULL, pair INTEGER NOT NULL, subject TEXT NOT NULL,
+  excused INTEGER NOT NULL DEFAULT 0, note TEXT,
+  UNIQUE (student_id, date, pair)
+);
+CREATE TABLE IF NOT EXISTS campus_passes (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  at TEXT NOT NULL, direction TEXT NOT NULL CHECK (direction IN ('in','out')), gate TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_passes_user ON campus_passes(user_id, at);
+CREATE INDEX IF NOT EXISTS idx_absences_student ON absences(student_id, date);
+CREATE INDEX IF NOT EXISTS idx_retakes_student ON retakes(student_id, date);
 CREATE INDEX IF NOT EXISTS idx_requests_student ON requests(student_id);
 CREATE INDEX IF NOT EXISTS idx_lessons_group ON lessons(group_name, weekday);
 CREATE INDEX IF NOT EXISTS idx_changes_group ON schedule_changes(group_name, date);

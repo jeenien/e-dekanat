@@ -51,7 +51,7 @@ fs.mkdirSync(OUT, { recursive: true });
   await doc.waitForLoadState(); await doc.screenshot({ path: path.join(OUT, '11-mobile-document.png'), fullPage: true });
   const verifyUrl = await doc.evaluate(() => document.querySelector('.qr div').textContent.match(/D-\S+/)[0]);
   await doc.goto(`${BASE}/verify/${verifyUrl}`); await doc.screenshot({ path: path.join(OUT, '12-mobile-verify.png') });
-  // Запись на приём
+  // Запись на прием
   await p.goto(BASE + '/#/requests/new/appointment'); await p.waitForSelector('[data-slot]:not([disabled])');
   await p.click('[data-slot]:not([disabled])'); await p.selectOption('[name="topic"]', 'Стипендия');
   await shot(p, '13-mobile-appointment'); await p.click('#submit'); await p.waitForSelector('.success');
@@ -62,13 +62,16 @@ fs.mkdirSync(OUT, { recursive: true });
   await shot(p, '14-mobile-assistant');
   await p.keyboard.press('Escape');
   await p.goto(BASE + '/#/notifications'); await p.waitForTimeout(400); await shot(p, '15-mobile-notifications');
+  await p.goto(BASE + '/#/campus'); await p.waitForTimeout(400); await shot(p, '15b-mobile-absences', true);
+  await p.goto(BASE + '/#/campus/passes'); await p.waitForTimeout(400); await shot(p, '15c-mobile-passes', true);
   await p.goto(BASE + '/#/profile'); await p.waitForTimeout(400); await shot(p, '16-mobile-profile', true);
   await p.close();
 
   // Тимур: другой студент — другие данные, есть долг и запрос уточнения
   p = await phone.newPage(); watch(p, 'timur');
   await p.context().clearCookies(); await login(p, 'timur');
-  await shot(p, '17-mobile-timur-today');
+  await shot(p, '17-mobile-timur-today'); await shot(p, '17b-mobile-timur-today-full', true);
+  const rlink = await p.$('a.banner-retake'); if (rlink) { await rlink.click(); await p.waitForTimeout(500); await shot(p, '17c-mobile-timur-retake-schedule'); }
   await p.goto(BASE + '/#/grades/record'); await p.waitForTimeout(400); await shot(p, '18-mobile-timur-record');
   await p.goto(BASE + '/#/requests'); await p.waitForTimeout(400);
   await p.click('a.card[href^="#/requests/Z-"]'); await p.waitForSelector('#chat');
@@ -96,7 +99,7 @@ fs.mkdirSync(OUT, { recursive: true });
   await p.keyboard.press('Control+k'); await p.waitForSelector('#pq'); await p.fill('#pq', 'справ'); await p.waitForTimeout(200); await shot(p, '33-desktop-search');
   await p.keyboard.press('Escape');
   await p.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
-  await p.goto(BASE + '/#/today'); await p.waitForTimeout(500); await shot(p, '34-desktop-dark');
+  await p.goto(BASE + '/#/today'); await p.waitForTimeout(2000); await shot(p, '34-desktop-dark');
   await p.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
   await p.context().clearCookies();
   // Сотрудник деканата
@@ -107,9 +110,11 @@ fs.mkdirSync(OUT, { recursive: true });
   await p.fill('#cm', 'Справка подготовлена, можно забрать в А-112 с 10:00 до 17:00.');
   await shot(p, '36-desktop-staff-request');
   await p.click('[data-s="ready"]'); await p.waitForTimeout(600);
+  await p.goto(BASE + '/#/staff/students'); await p.waitForSelector('tr[data-id]'); await shot(p, '38-desktop-staff-students');
+  await p.click('tr[data-id]'); await p.waitForSelector('#rt'); await p.waitForTimeout(300); await shot(p, '39-desktop-staff-student', true);
   await p.goto(BASE + '/#/staff/schedule'); await p.waitForSelector('#p'); await p.fill('#rm', 'Б-201'); await p.fill('#nt', 'Проектор не работает');
   await shot(p, '37-desktop-staff-schedule');
-  await p.click('#sc button.grad'); await p.waitForTimeout(500);
+  await p.click('#sc button.btn'); await p.waitForTimeout(500);
   await p.close(); await desk.close();
   await browser.close();
   if (errors.length) { console.error('Ошибки в браузере:\n' + errors.join('\n')); process.exit(1); }

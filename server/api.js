@@ -1,4 +1,4 @@
-// HTTP API кабинета. Правило безопасности: личность берётся только из сессии (req.user),
+// HTTP API кабинета. Правило безопасности: личность берется только из сессии (req.user),
 // а любой объект по id ищется с условием «принадлежит этому студенту» — иначе 404.
 const express = require('express');
 const A = require('./academic');
@@ -45,11 +45,13 @@ function createApi(db, auth) {
   api.get('/dashboard', student, (req, res) => {
     const st = S.getStudent(db, req.user.id);
     const today = todayParam(req.query.date);
-    const week = S.rangeSchedule(db, st.group, today, 8);
+    const week = S.rangeSchedule(db, st.group, today, 8, req.user.id);
     const g = S.gradesOverview(db, req.user.id);
     const notif = S.notificationsFor(db, req.user.id, st);
     const reqs = db.prepare("SELECT * FROM requests WHERE student_id = ? AND (status NOT IN ('done','rejected') OR updated_at > ?) ORDER BY updated_at DESC LIMIT 4").all(req.user.id, new Date(Date.now() - 7 * 864e5).toISOString());
-    const changes = week.flatMap((d) => d.lessons.filter((l) => l.change).map((l) => ({ date: d.date, ...l })));
+    const changes = week.flatMap((d) => d.lessons.filter((l) => l.change && l.change.type !== 'retake').map((l) => ({ date: d.date, ...l })));
+    const abs = S.absencesFor(db, req.user.id);
+    const campus = S.campusFor(db, req.user.id, 7);
     res.json({
       today: week[0], next_days: week.slice(1),
       changes,
@@ -58,6 +60,9 @@ function createApi(db, auth) {
       notifications: { unread: notif.filter((n) => !n.read).length, latest: notif.filter((n) => !n.read).slice(0, 3) },
       grades: { gpa: g.summary.gpa, risks: g.summary.risks, debts: g.summary.debts, stipend: g.summary.stipend, current: g.current.map((c) => ({ name: c.name, earned: c.earned, sem_max: c.sem_max, status: c.status, label: c.label })) },
       session: g.session,
+      retakes: S.retakesFor(db, req.user.id),
+      absences: { hours: abs.hours, excused_hours: abs.excused_hours, limits: abs.limits, level: abs.level, left_to_warning: abs.left_to_warning },
+      campus: { today: campus.days[0], week_minutes: campus.week_minutes, week_days: campus.week_days },
     });
   });
 
@@ -66,13 +71,13 @@ function createApi(db, auth) {
     const st = S.getStudent(db, req.user.id);
     const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 31);
     const from = todayParam(req.query.from);
-    res.json({ group: st.group, pairs: A.PAIRS, days: S.rangeSchedule(db, st.group, from, days) });
+    res.json({ group: st.group, pairs: A.PAIRS, days: S.rangeSchedule(db, st.group, from, days, req.user.id) });
   });
 
-  // Экспорт в календарь телефона (.ics) на 4 недели вперёд
+  // Экспорт в календарь телефона (.ics) на 4 недели вперед
   api.get('/schedule.ics', student, (req, res) => {
     const st = S.getStudent(db, req.user.id);
-    const days = S.rangeSchedule(db, st.group, A.isoDate(new Date()), 28);
+    const days = S.rangeSchedule(db, st.group, A.isoDate(new Date()), 28, req.user.id);
     const esc = (s) => String(s).replace(/[\\;,]/g, (c) => '\\' + c).replace(/\n/g, '\\n');
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Orbita concept//RU', 'CALSCALE:GREGORIAN', `X-WR-CALNAME:Пары ${st.group}`, 'X-WR-TIMEZONE:Europe/Moscow'];
     for (const d of days) for (const l of d.lessons) {
@@ -90,6 +95,11 @@ function createApi(db, auth) {
 
   // ---------- Успеваемость ----------
   api.get('/grades', student, (req, res) => res.json(S.gradesOverview(db, req.user.id)));
+
+  // ---------- Посещаемость и проходы (только свои) ----------
+  api.get('/attendance', student, (req, res) => {
+    res.json({ absences: S.absencesFor(db, req.user.id), campus: S.campusFor(db, req.user.id, 14), retakes: S.retakesFor(db, req.user.id) });
+  });
 
   // ---------- Дедлайны ----------
   api.get('/deadlines', student, (req, res) => {
@@ -220,7 +230,7 @@ function createApi(db, auth) {
     db.prepare('UPDATE requests SET status = ?, updated_at = ?, assignee = ?, doc_code = ? WHERE id = ?').run(status, nowIso(), STAFF_NAME(req.user), docCode, r.id);
     db.prepare("INSERT INTO request_events (request_id, kind, status, author_role, author_name, text, created_at) VALUES (?, 'status', ?, 'staff', ?, ?, ?)").run(r.id, status, STAFF_NAME(req.user), comment || null, nowIso());
     const msg = { in_progress: 'взята в работу', need_info: 'нужно уточнение', ready: 'готова', done: 'завершена', rejected: 'отклонена' }[status];
-    R.notifyStudent(db, r.student_id, `Заявка «${r.title}»: ${msg}`, comment || `Статус изменён: ${R.STATUS[status]}.`, `#/requests/${r.public_id}`);
+    R.notifyStudent(db, r.student_id, `Заявка «${r.title}»: ${msg}`, comment || `Статус изменен: ${R.STATUS[status]}.`, `#/requests/${r.public_id}`);
     auth.audit(req.user.id, 'staff_status', `${r.public_id}:${status}`, req.ip);
     res.json({ ok: true });
   });
@@ -261,11 +271,47 @@ function createApi(db, auth) {
     db.prepare('INSERT INTO schedule_changes (group_name, date, pair, type, subject, kind, new_room, note) VALUES (?,?,?,?,?,?,?,?)').run(group, date, p, type, lesson.subject, lesson.kind, type === 'room' ? new_room.trim() : null, String(note || '').slice(0, 200) || null);
     const dd = date.split('-').reverse().join('.');
     const title = type === 'cancel' ? `Отмена пары: ${lesson.subject}` : `Смена аудитории: ${lesson.subject}`;
-    const text = type === 'cancel' ? `${p} пара ${dd} отменена.${note ? ' ' + note : ''}` : `${p} пара ${dd} пройдёт в аудитории ${new_room.trim()} вместо ${lesson.room}.${note ? ' ' + note : ''}`;
+    const text = type === 'cancel' ? `${p} пара ${dd} отменена.${note ? ' ' + note : ''}` : `${p} пара ${dd} пройдет в аудитории ${new_room.trim()} вместо ${lesson.room}.${note ? ' ' + note : ''}`;
     db.prepare("INSERT INTO notifications (audience, category, title, body, link, important, author, created_at) VALUES (?, 'schedule', ?, ?, '#/schedule', 1, ?, ?)").run(`group:${group}`, title, text, STAFF_NAME(req.user), nowIso());
     auth.audit(req.user.id, 'staff_schedule', `${group}:${date}:${p}:${type}`, req.ip);
     res.status(201).json({ ok: true });
   });
+  // Посещаемость студентов для деканата
+  api.get('/staff/students', staff, (req, res) => {
+    const rows = db.prepare("SELECT u.id, u.last_name, u.first_name, u.middle_name, s.group_name, s.course, s.faculty FROM users u JOIN students s ON s.user_id = u.id ORDER BY s.group_name, u.last_name").all();
+    res.json(rows.map((r) => {
+      const a = S.absencesFor(db, r.id);
+      const c = S.campusFor(db, r.id, 7);
+      return { id: r.id, name: `${r.last_name} ${r.first_name} ${r.middle_name || ''}`.trim(), group: r.group_name, course: r.course, faculty: r.faculty,
+        absence_hours: a.hours, absence_level: a.level, week_minutes: c.week_minutes, week_days: c.week_days, inside: c.inside, today_in: c.days[0].first_in };
+    }));
+  });
+  api.get('/staff/students/:id/attendance', staff, (req, res) => {
+    const id = Number(req.params.id);
+    const r = db.prepare("SELECT u.id, u.last_name, u.first_name, u.middle_name, s.group_name, s.course FROM users u JOIN students s ON s.user_id = u.id WHERE u.id = ?").get(id);
+    if (!r) return res.status(404).json({ error: 'Студент не найден' });
+    auth.audit(req.user.id, 'staff_view_attendance', String(id), req.ip);
+    res.json({ student: { id: r.id, name: `${r.last_name} ${r.first_name} ${r.middle_name || ''}`.trim(), group: r.group_name, course: r.course },
+      absences: S.absencesFor(db, id), campus: S.campusFor(db, id, 14), retakes: S.retakesFor(db, id) });
+  });
+  // Пересдачи назначает деканат
+  api.post('/staff/retakes', staff, (req, res) => {
+    const { student_id, discipline, date, pair, room, examiner } = req.body || {};
+    const st = db.prepare('SELECT user_id FROM students WHERE user_id = ?').get(Number(student_id));
+    if (!st) return res.status(400).json({ error: 'Выберите студента' });
+    if (typeof discipline !== 'string' || !discipline.trim() || discipline.length > 150) return res.status(400).json({ error: 'Укажите дисциплину' });
+    if (!A.parseDate(date) || !A.PAIRS[Number(pair)]) return res.status(400).json({ error: 'Укажите дату и пару' });
+    if (typeof room !== 'string' || !room.trim() || room.length > 30) return res.status(400).json({ error: 'Укажите аудиторию' });
+    const exr = String(examiner || '').trim().slice(0, 80) || 'Кафедра';
+    const attempt = db.prepare('SELECT COUNT(*) n FROM retakes WHERE student_id = ? AND discipline = ?').get(st.user_id, discipline.trim()).n + 1;
+    db.prepare('INSERT INTO retakes (student_id, discipline, date, pair, room, examiner, attempt, set_by) VALUES (?,?,?,?,?,?,?,?)').run(st.user_id, discipline.trim(), date, Number(pair), room.trim(), exr, attempt, STAFF_NAME(req.user));
+    const dd = date.split('-').reverse().join('.');
+    db.prepare("INSERT INTO notifications (audience, category, title, body, link, important, author, created_at) VALUES (?, 'grades', 'Назначена пересдача', ?, ?, 1, ?, ?)")
+      .run(`user:${st.user_id}`, `«${discipline.trim()}»: ${dd}, ${A.PAIRS[Number(pair)][0]}, аудитория ${room.trim()}. Пересдачу назначили деканат и кафедра — заявление не нужно.`, `#/schedule/${date}`, STAFF_NAME(req.user), nowIso());
+    auth.audit(req.user.id, 'staff_retake', `${st.user_id}:${date}`, req.ip);
+    res.status(201).json({ ok: true, attempt });
+  });
+
   api.get('/staff/schedule', staff, (req, res) => {
     const group = String(req.query.group || '');
     const date = todayParam(req.query.date);

@@ -1,4 +1,4 @@
-// Бизнес-логика: расписание с изменениями, расчёт успеваемости, уведомления.
+// Бизнес-логика: расписание с изменениями, расчет успеваемости, уведомления.
 // Каждая функция получает id пользователя из сессии — никогда из адреса или тела запроса.
 const A = require('./academic');
 const { decrypt } = require('./security');
@@ -17,7 +17,7 @@ function getStudent(db, userId) {
 }
 
 // ---------- Расписание ----------
-function daySchedule(db, group, dateStr) {
+function daySchedule(db, group, dateStr, userId = null) {
   const date = A.parseDate(dateStr);
   if (!date) return null;
   const wd = A.weekday(date);
@@ -45,20 +45,26 @@ function daySchedule(db, group, dateStr) {
     if (c.type === 'teacher') { l.change = { type: 'teacher', note: c.note, old_teacher: l.teacher }; l.teacher = c.new_teacher; }
     if (c.type === 'move') l.change = { type: 'move', note: c.note, new_date: c.new_date, new_pair: c.new_pair };
   }
+  // Личные пересдачи студента (их назначают деканат и кафедра)
+  if (userId) {
+    for (const r of db.prepare('SELECT * FROM retakes WHERE student_id = ? AND date = ?').all(userId, dateStr)) {
+      lessons.push({ pair: r.pair, start: A.PAIRS[r.pair][0], end: A.PAIRS[r.pair][1], subject: r.discipline, kind: 'Пересдача', room: r.room, teacher: r.examiner, online: false, change: { type: 'retake', note: `Попытка ${r.attempt}` } });
+    }
+  }
   lessons.sort((a, b) => a.pair - b.pair);
   return { date: dateStr, weekday: wd, week: number, parity, lessons };
 }
 
-function rangeSchedule(db, group, fromStr, days) {
+function rangeSchedule(db, group, fromStr, days, userId = null) {
   const from = A.parseDate(fromStr);
   if (!from) return null;
   const out = [];
-  for (let i = 0; i < days; i++) out.push(daySchedule(db, group, A.isoDate(A.addDays(from, i))));
+  for (let i = 0; i < days; i++) out.push(daySchedule(db, group, A.isoDate(A.addDays(from, i)), userId));
   return out;
 }
 
 // ---------- Успеваемость ----------
-const CONTROL_LABEL = { exam: 'Экзамен', credit: 'Зачёт', diff_credit: 'Дифф. зачёт', coursework: 'Курсовая' };
+const CONTROL_LABEL = { exam: 'Экзамен', credit: 'Зачет', diff_credit: 'Дифф. зачет', coursework: 'Курсовая' };
 
 function disciplineProgress(d, items) {
   const isExam = d.control === 'exam';
@@ -72,11 +78,11 @@ function disciplineProgress(d, items) {
   const need = Math.max(0, threshold - earned);
   let status, label;
   if (d.control === 'diff_credit' && projected >= threshold) { status = projected - threshold < 8 ? 'watch' : 'ok'; label = `Прогноз: «${A.markFor(projected).mark}» (≈${projected} б.)`; }
-  else if (earned >= threshold) { status = 'ok'; label = isExam ? 'Допуск к экзамену есть' : 'Зачёт автоматом'; }
-  else if (need > remaining) { status = 'risk'; label = 'Баллов уже не хватит — нужна отработка'; }
-  else if (projected < threshold) { status = 'risk'; label = `Не хватает ${need} б. — темп ниже нужного`; }
-  else if (projected - threshold < 8) { status = 'watch'; label = `Ещё ${need} б. до ${isExam ? 'допуска' : 'зачёта'}`; }
-  else { status = 'ok'; label = `Ещё ${need} б. до ${isExam ? 'допуска' : 'зачёта'} — вы в графике`; }
+  else if (earned >= threshold) { status = 'ok'; label = isExam ? 'Допуск к экзамену есть' : 'Зачет автоматом'; }
+  else if (need > remaining) { status = 'risk'; label = 'Баллов недостаточно'; }
+  else if (projected < threshold) { status = 'risk'; label = `Нужно еще ${need} б.`; }
+  else if (projected - threshold < 8) { status = 'watch'; label = `Еще ${need} б. до ${isExam ? 'допуска' : 'зачета'}`; }
+  else { status = 'ok'; label = `Еще ${need} б. до ${isExam ? 'допуска' : 'зачета'} — вы в графике`; }
 
   // Что нужно на экзамене для каждой оценки (при максимуме в семестре)
   let examTargets = null;
@@ -112,8 +118,8 @@ function gradesOverview(db, userId) {
   let stipend;
   const risks = current.filter((c) => c.status === 'risk');
   if (st.funding !== 'Бюджет') stipend = { level: 'none', title: 'Не предусмотрена', text: 'Вы учитесь по договору — академическая стипендия не назначается. Можно претендовать на именные стипендии и материальную помощь.' };
-  else if (debts.length) stipend = { level: 'bad', title: 'Под угрозой', text: 'Есть академическая задолженность — закройте её до конца сессии, чтобы сохранить стипендию.' };
-  else if (risks.length) stipend = { level: 'warn', title: 'Есть риск', text: `${risks.length} ${risks.length === 1 ? 'дисциплина' : 'дисциплины'} в зоне риска. Сдав всё на «хорошо» и «отлично», вы сохраните стипендию.` };
+  else if (debts.length) stipend = { level: 'bad', title: 'Зависит от пересдачи', text: 'Есть академическая задолженность. После ее закрытия стипендия может быть назначена.' };
+  else if (risks.length) stipend = { level: 'warn', title: 'Есть риск', text: `${risks.length} ${risks.length === 1 ? 'дисциплина' : 'дисциплины'} в зоне риска. Сдав все на «хорошо» и «отлично», вы сохраните стипендию.` };
   else if (current.every((c) => c.projected >= (c.control === 'exam' ? 51 : 85))) stipend = { level: 'great', title: 'Повышенная — реально', text: 'Если сдадите сессию на «отлично», сохраните повышенную стипендию.' };
   else stipend = { level: 'good', title: 'Сохраняется', text: 'При сдаче сессии без троек стипендия сохранится.' };
 
@@ -141,7 +147,7 @@ function notificationsFor(db, userId, st) {
     LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = ?
     WHERE n.audience IN (${aud.map(() => '?').join(',')}) ORDER BY n.pinned DESC, n.created_at DESC LIMIT 100`).all(userId, ...aud);
   const list = rows.map((n) => ({ id: n.id, category: n.category, title: n.title, body: n.body, link: n.link, important: Boolean(n.important), pinned: Boolean(n.pinned), author: n.author, created_at: n.created_at, read: Boolean(n.read) }));
-  // Напоминания о дедлайнах формируются на лету: ближайшие 48 часов, ещё не отмеченные выполненными
+  // Напоминания о дедлайнах формируются на лету: ближайшие 48 часов, еще не отмеченные выполненными
   if (st) {
     const soon = deadlinesFor(db, userId, st.group).filter((d) => !d.done && new Date(d.due_at) > Date.now() && new Date(d.due_at) - Date.now() < 48 * 3600e3);
     for (const d of soon) list.unshift({ id: `dl-${d.id}`, category: 'deadline', title: `Дедлайн скоро: ${d.title}`, body: `${d.discipline}. Сдать до ${d.due_at.slice(11, 16)}, ${d.due_at.slice(0, 10).split('-').reverse().join('.')}.`, link: '#/today', important: true, pinned: false, author: 'Напоминание', created_at: new Date().toISOString(), read: false, virtual: true });
@@ -149,4 +155,47 @@ function notificationsFor(db, userId, st) {
   return list;
 }
 
-module.exports = { getStudent, daySchedule, rangeSchedule, gradesOverview, deadlinesFor, notificationsFor, audiencesFor, CONTROL_LABEL };
+// ---------- Посещаемость ----------
+// Пара — 80 минут, это 2 академических часа (по 45 минут). Лимит: 30 ч — выговор, 60 ч — отчисление.
+const ABSENCE = { hoursPerPair: 2, warning: 30, expulsion: 60 };
+function retakesFor(db, userId) {
+  return db.prepare('SELECT discipline, date, pair, room, examiner, attempt FROM retakes WHERE student_id = ? AND date >= ? ORDER BY date, pair').all(userId, A.isoDate(new Date()))
+    .map((r) => ({ ...r, start: A.PAIRS[r.pair][0], end: A.PAIRS[r.pair][1] }));
+}
+function absencesFor(db, userId) {
+  const list = db.prepare('SELECT date, pair, subject, excused, note FROM absences WHERE student_id = ? ORDER BY date DESC, pair').all(userId)
+    .map((a) => ({ ...a, excused: Boolean(a.excused), hours: ABSENCE.hoursPerPair, start: A.PAIRS[a.pair][0] }));
+  const hours = list.filter((a) => !a.excused).length * ABSENCE.hoursPerPair;
+  const excusedHours = list.filter((a) => a.excused).length * ABSENCE.hoursPerPair;
+  const level = hours >= ABSENCE.expulsion ? 'expulsion' : hours >= ABSENCE.warning ? 'warning' : hours >= ABSENCE.warning - 8 ? 'near' : 'ok';
+  return { hours, excused_hours: excusedHours, pairs: hours / ABSENCE.hoursPerPair, limits: ABSENCE, level,
+    left_to_warning: Math.max(0, ABSENCE.warning - hours), list };
+}
+// Проходы СКУД, сгруппированные по дням: первый вход, последний выход, время внутри
+function campusFor(db, userId, days = 14) {
+  const from = A.isoDate(A.addDays(new Date(), -(days - 1)));
+  const rows = db.prepare('SELECT at, direction, gate FROM campus_passes WHERE user_id = ? AND at >= ? ORDER BY at').all(userId, from);
+  const byDay = {};
+  for (const r of rows) (byDay[r.at.slice(0, 10)] ||= []).push(r);
+  const out = [];
+  const now = new Date();
+  for (let i = 0; i < days; i++) {
+    const date = A.isoDate(A.addDays(new Date(), -i));
+    const ev = byDay[date] || [];
+    let minutes = 0, open = null;
+    const intervals = [];
+    for (const e of ev) {
+      const t = new Date(e.at);
+      if (e.direction === 'in') open = t;
+      else if (open) { minutes += (t - open) / 60000; intervals.push([open.toTimeString().slice(0, 5), e.at.slice(11, 16)]); open = null; }
+    }
+    const inside = Boolean(open) && i === 0;
+    if (open && i === 0) { minutes += (now - open) / 60000; intervals.push([open.toTimeString().slice(0, 5), null]); }
+    out.push({ date, first_in: ev.find((e) => e.direction === 'in')?.at.slice(11, 16) || null, last_out: [...ev].reverse().find((e) => e.direction === 'out')?.at.slice(11, 16) || null,
+      minutes: Math.round(minutes), inside, intervals, events: ev.map((e) => ({ time: e.at.slice(11, 16), direction: e.direction, gate: e.gate })) });
+  }
+  const week = out.slice(0, 7);
+  return { days: out, week_minutes: week.reduce((s2, d) => s2 + d.minutes, 0), week_days: week.filter((d) => d.minutes > 0).length, inside: out[0]?.inside || false };
+}
+
+module.exports = { ABSENCE, retakesFor, absencesFor, campusFor, getStudent, daySchedule, rangeSchedule, gradesOverview, deadlinesFor, notificationsFor, audiencesFor, CONTROL_LABEL };

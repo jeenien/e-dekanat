@@ -12,21 +12,21 @@ const PAGE_CSS = `
 @font-face{font-family:Manrope;font-weight:800;src:url(/fonts/manrope-cyrillic-800-normal.woff2) format('woff2')}
 *{box-sizing:border-box}body{margin:0;background:#eef0f6;font:15px/1.55 Manrope,system-ui,sans-serif;color:#141a2e}
 .bar{max-width:820px;margin:16px auto;display:flex;gap:8px;justify-content:space-between;padding:0 16px;flex-wrap:wrap}
-.bar a{color:#4338ca;font-weight:700;text-decoration:none}
+.bar a{color:#1f3a7a;font-weight:700;text-decoration:none}
 .paper{position:relative;max-width:820px;margin:0 auto 32px;background:#fff;padding:56px 64px;border-radius:12px;box-shadow:0 10px 40px rgba(20,26,46,.08);overflow:hidden}
-.wm{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font-size:64px;font-weight:800;color:rgba(67,56,202,.06);transform:rotate(-24deg);text-align:center;line-height:1.1}
+.wm{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font-size:64px;font-weight:800;color:rgba(31,58,122,.06);transform:rotate(-24deg);text-align:center;line-height:1.1}
 .head{display:flex;gap:14px;align-items:center;border-bottom:2px solid #141a2e;padding-bottom:16px;margin-bottom:28px}
 .head b{font-size:17px;letter-spacing:.02em}.head small{display:block;color:#5b6276}
 h1{text-align:center;font-size:22px;margin:8px 0 4px;letter-spacing:.06em}.num{text-align:center;color:#5b6276;margin-bottom:28px}
 table{width:100%;border-collapse:collapse;margin:12px 0}td,th{border:1px solid #d9dce6;padding:6px 8px;text-align:left;font-size:13px}th{background:#f4f5f9}
 .sign{display:flex;justify-content:space-between;align-items:flex-end;margin-top:40px;gap:24px}
 .qr{width:132px;text-align:center;font-size:11px;color:#5b6276}.qr svg{width:132px;height:132px}
-.stamp{border:2px solid #4338ca;color:#4338ca;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;transform:rotate(-3deg);display:inline-block}
+.stamp{border:2px solid #4338ca;color:#1f3a7a;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;transform:rotate(-3deg);display:inline-block}
 .note{margin-top:28px;font-size:12px;color:#8a5a00;background:#fff6e0;border-radius:8px;padding:10px 12px}
 @media (max-width:640px){.paper{padding:28px 20px}.sign{flex-direction:column;align-items:flex-start}.wm{font-size:36px}}
 @media print{body{background:#fff}.bar{display:none}.paper{box-shadow:none;margin:0;max-width:none}}
 `;
-const LOGO = `<svg width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#ec4899"/></linearGradient></defs><rect width="48" height="48" rx="14" fill="url(#g)"/><ellipse cx="24" cy="24" rx="15" ry="7" fill="none" stroke="#fff" stroke-width="2.5" transform="rotate(-25 24 24)"/><circle cx="24" cy="24" r="5" fill="#fff"/><circle cx="37" cy="17" r="2.6" fill="#fff"/></svg>`;
+const LOGO = `<svg width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="14" fill="#1f3a7a"/><ellipse cx="24" cy="24" rx="15" ry="7" fill="none" stroke="#fff" stroke-width="2.5" transform="rotate(-25 24 24)"/><circle cx="24" cy="24" r="5" fill="#fff"/><circle cx="37" cy="17" r="2.6" fill="#fff"/></svg>`;
 
 // «Экономический факультет» → «экономического факультета»
 function facultyGenitive(f) {
@@ -51,17 +51,17 @@ async function renderDocument(db, req, request) {
   if (request.type === 'transcript') {
     const g = S.gradesOverview(db, request.student_id);
     const rows = Object.entries(g.semesters).flatMap(([sem, list]) => list.map((x) => `<tr><td>${esc(sem)}</td><td>${esc(x.name)}</td><td>${esc(x.control_label)}</td><td>${x.credits}</td><td>${esc(x.mark)}</td></tr>`)).join('');
-    body = `<h1>ВЫПИСКА ИЗ ЗАЧЁТНОЙ КНИЖКИ</h1><div class="num">№ ${esc(request.doc_code)} от ${ruDate(request.created_at)}</div>
-      <p>Студент: <b>${esc(fio)}</b>, ${st.course} курс, группа ${esc(st.group)}, направление ${esc(st.program_code)} «${esc(st.program)}», зачётная книжка № ${esc(st.record_book)}.</p>
-      ${rows ? `<table><tr><th>Сем.</th><th>Дисциплина</th><th>Форма</th><th>З.е.</th><th>Оценка</th></tr>${rows}</table>` : '<p><i>Сессии ещё не сдавались — оценок нет.</i></p>'}
-      <p>Средний балл: <b>${g.summary.gpa ?? '—'}</b>. Освоено зачётных единиц: <b>${g.summary.credits}</b>.</p>`;
+    body = `<h1>ВЫПИСКА ИЗ ЗАЧЕТНОЙ КНИЖКИ</h1><div class="num">№ ${esc(request.doc_code)} от ${ruDate(request.created_at)}</div>
+      <p>Студент: <b>${esc(fio)}</b>, ${st.course} курс, группа ${esc(st.group)}, направление ${esc(st.program_code)} «${esc(st.program)}», зачетная книжка № ${esc(st.record_book)}.</p>
+      ${rows ? `<table><tr><th>Сем.</th><th>Дисциплина</th><th>Форма</th><th>З.е.</th><th>Оценка</th></tr>${rows}</table>` : '<p><i>Сессии еще не сдавались — оценок нет.</i></p>'}
+      <p>Средний балл: <b>${g.summary.gpa ?? '—'}</b>. Освоено зачетных единиц: <b>${g.summary.credits}</b>.</p>`;
   } else {
     body = `<h1>СПРАВКА</h1><div class="num">№ ${esc(request.doc_code)} от ${ruDate(request.created_at)}</div>
       <p>Дана <b>${esc(fio)}</b>${st.birth_date ? `, ${new Date(st.birth_date).toLocaleDateString('ru-RU')} г. р.,` : ''} в том, что он(а) действительно является студентом(кой) ${st.course} курса
-      ${{ 'Очная': 'очной', 'Заочная': 'заочной', 'Очно-заочная': 'очно-заочной' }[st.study_form] || st.study_form.toLowerCase()} формы обучения (${st.funding === 'Бюджет' ? 'за счёт бюджетных ассигнований' : 'по договору об оказании платных образовательных услуг'})
+      ${{ 'Очная': 'очной', 'Заочная': 'заочной', 'Очно-заочная': 'очно-заочной' }[st.study_form] || st.study_form.toLowerCase()} формы обучения (${st.funding === 'Бюджет' ? 'за счет бюджетных ассигнований' : 'по договору об оказании платных образовательных услуг'})
       ${esc(facultyGenitive(st.faculty))}
       Университета «Горизонт» по направлению подготовки ${esc(st.program_code)} «${esc(st.program)}».</p>
-      <p>Зачётная книжка № ${esc(st.record_book)}. Год поступления — ${st.enrolled_year}. Нормативный срок окончания обучения — 30 июня ${st.enrolled_year + 4} г.</p>
+      <p>Зачетная книжка № ${esc(st.record_book)}. Год поступления — ${st.enrolled_year}. Нормативный срок окончания обучения — 30 июня ${st.enrolled_year + 4} г.</p>
       <p>Справка выдана для предоставления: <b>${esc(payload.purpose || 'по месту требования')}</b>.</p>`;
   }
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Документ ${esc(request.doc_code)}</title><style>${PAGE_CSS}</style></head><body>

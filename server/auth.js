@@ -1,5 +1,5 @@
 // Вход, сессии, роли. Токен сессии — случайные 256 бит в HttpOnly-cookie;
-// в базе хранится только его SHA-256, поэтому утечка базы не даёт войти в чужой кабинет.
+// в базе хранится только его SHA-256, поэтому утечка базы не дает войти в чужой кабинет.
 const { verifyPassword, DUMMY_HASH, sha256, randomToken, hashPassword } = require('./security');
 const { SESSION_TTL_MS, IS_PROD } = require('./config');
 

@@ -19,7 +19,7 @@ function verifyPassword(password, stored) {
 // чтобы по времени ответа нельзя было понять, есть ли такой пользователь.
 const DUMMY_HASH = hashPassword(crypto.randomBytes(12).toString('hex'));
 
-// --- Шифрование персональных полей (телефон, e-mail, номер зачётки, дата рождения) ---
+// --- Шифрование персональных полей (телефон, e-mail, номер зачетки, дата рождения) ---
 function encrypt(plain) {
   if (plain == null) return null;
   const iv = crypto.randomBytes(12);

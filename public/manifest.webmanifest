@@ -4,8 +4,8 @@
   "description": "Конкурсный концепт личного кабинета студента. Не официальный сервис.",
   "start_url": "/#/today",
   "display": "standalone",
-  "background_color": "#f4f5fb",
-  "theme_color": "#4f46e5",
+  "background_color": "#eef1f7",
+  "theme_color": "#1f3a7a",
   "lang": "ru",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },

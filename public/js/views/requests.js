@@ -13,7 +13,7 @@ function track(r) {
   return `<div class="status-track ${tone}" aria-hidden="true">${[1, 2, 3].map((s) => `<i class="${s <= m.step ? 'on' : ''}"></i>`).join('')}</div>`;
 }
 function reqCard(r) {
-  const sub = r.status === 'need_info' ? '<b style="color:var(--warn)">Деканат ждёт вашего ответа</b>'
+  const sub = r.status === 'need_info' ? '<b style="color:var(--warn)">Деканат ждет вашего ответа</b>'
     : r.status === 'ready' && r.has_document ? '<b style="color:var(--ok)">Документ можно скачать</b>'
     : r.status === 'ready' ? '<b style="color:var(--ok)">Готово</b>'
     : r.eta && !['done', 'rejected'].includes(r.status) ? `Плановый срок — ${fmt.dmShort(parseISO(r.eta))}` : `Обновлено ${fmt.ago(r.updated_at)}`;
@@ -31,12 +31,12 @@ export async function renderList(ctx) {
   const types = await catalog();
   ctx.el.innerHTML = `<div class="page stack">
     <a class="card row" href="#/requests/new" style="background:var(--grad);color:#fff;border:0">
-      <div class="grow"><b style="font-size:17px">Новая заявка</b><div class="small" style="opacity:.9">Справки, заявления, запись на приём — ${types.length} ${plural(types.length, 'услуга', 'услуги', 'услуг')}</div></div>
+      <div class="grow"><b style="font-size:17px">Новая заявка</b><div class="small" style="opacity:.9">Справки, заявления, запись на прием — ${types.length} ${plural(types.length, 'услуга', 'услуги', 'услуг')}</div></div>
       <span class="icon-btn" style="background:rgba(255,255,255,.2);color:#fff">${icon('plus')}</span></a>
     <div class="section-title">Популярное</div>
     <div class="svc-grid">${types.filter((t) => t.popular).slice(0, 3).map((t) => svcTile(t)).join('')}</div>
     <div class="section-title">Активные · ${active.length}</div>
-    ${active.length ? `<div class="grid c2">${active.map(reqCard).join('')}</div>` : `<div class="card">${empty('inbox', 'Активных заявок нет', 'Когда вы что-то закажете, статус появится здесь — и придёт уведомление, когда будет готово.')}</div>`}
+    ${active.length ? `<div class="grid c2">${active.map(reqCard).join('')}</div>` : `<div class="card">${empty('inbox', 'Активных заявок нет', 'Когда вы что-то закажете, статус появится здесь — и придет уведомление, когда будет готово.')}</div>`}
     ${closed.length ? `<div class="section-title">Архив · ${closed.length}</div><div class="grid c2">${closed.map(reqCard).join('')}</div>` : ''}
   </div>`;
 }
@@ -176,7 +176,7 @@ function showSuccess(ctx, t, r) {
   ctx.el.innerHTML = `<div class="page"><div class="card success" style="max-width:520px;margin:0 auto">
     <div class="art">${icon('check')}</div>
     <h2>${r.duplicate ? 'Такая заявка уже есть' : instant ? (t.id === 'appointment' ? 'Вы записаны!' : 'Готово!') : 'Заявка отправлена'}</h2>
-    <p class="muted">${r.duplicate ? 'Мы не стали создавать дубликат — откройте существующую.' : instant ? (t.id === 'appointment' ? 'Подтверждение и время приёма — в карточке заявки. Мы напомним заранее.' : 'Документ уже сформирован. Его можно скачать или отправить по ссылке — подлинность проверяется по QR-коду.') : `Номер ${esc(r.id)}. Статус будет обновляться здесь, а когда всё будет готово — придёт уведомление.`}</p>
+    <p class="muted">${r.duplicate ? 'Мы не стали создавать дубликат — откройте существующую.' : instant ? (t.id === 'appointment' ? 'Подтверждение и время приема — в карточке заявки. Мы напомним заранее.' : 'Документ уже сформирован. Его можно скачать или отправить по ссылке — подлинность проверяется по QR-коду.') : `Номер ${esc(r.id)}. Статус будет обновляться здесь, а когда все будет готово — придет уведомление.`}</p>
     <div class="row wrap" style="justify-content:center;margin-top:6px"><a class="btn" href="#/requests/${esc(r.id)}">Открыть заявку</a><a class="btn ghost" href="#/today">На главную</a></div></div></div>`;
   toast(instant ? 'Готово!' : 'Заявка отправлена');
 }
@@ -234,7 +234,7 @@ export async function renderOne(ctx) {
     };
   }
   ctx.el.querySelector('#cancel')?.addEventListener('click', async () => {
-    if (!confirm(r.type === 'appointment' ? 'Отменить запись на приём?' : 'Отозвать заявку? Это действие нельзя отменить.')) return;
+    if (!confirm(r.type === 'appointment' ? 'Отменить запись на прием?' : 'Отозвать заявку? Это действие нельзя отменить.')) return;
     try { await api(`/requests/${encodeURIComponent(r.id)}/cancel`, { method: 'POST' }); toast('Готово'); renderOne(ctx); } catch (err) { toast(err.message, 'bad'); }
   });
   ctx.el.querySelectorAll('[data-rate]').forEach((b) => b.onclick = async () => {
