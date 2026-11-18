@@ -1,4 +1,4 @@
-// «Кампус»: пропуски занятий и проходы через турникеты (СКУД). Студент видит только свои данные.
+// «Посещаемость»: пропуски занятий и проходы через турникеты (СКУД). Студент видит только свои данные.
 import { api, esc, icon, fmt, parseISO, empty, plural, todayISO } from '../lib.js';
 import { absenceMeter } from './today.js';
 
@@ -44,7 +44,7 @@ export function absenceList(list) {
 }
 
 export async function render(ctx) {
-  ctx.setTitle('Кампус');
+  ctx.setTitle('Посещаемость');
   const d = await api('/attendance');
   if (!ctx.isCurrent()) return;
   const tab = ctx.params.tab === 'passes' ? 'passes' : 'absences';

@@ -117,11 +117,12 @@ function gradesOverview(db, userId) {
   // Прогноз стипендии на следующий семестр
   let stipend;
   const risks = current.filter((c) => c.status === 'risk');
-  if (st.funding !== 'Бюджет') stipend = { level: 'none', title: 'Не предусмотрена', text: 'Вы учитесь по договору — академическая стипендия не назначается. Можно претендовать на именные стипендии и материальную помощь.' };
-  else if (debts.length) stipend = { level: 'bad', title: 'Зависит от пересдачи', text: 'Есть академическая задолженность. После ее закрытия стипендия может быть назначена.' };
-  else if (risks.length) stipend = { level: 'warn', title: 'Есть риск', text: `${risks.length} ${risks.length === 1 ? 'дисциплина' : 'дисциплины'} в зоне риска. Сдав все на «хорошо» и «отлично», вы сохраните стипендию.` };
-  else if (current.every((c) => c.projected >= (c.control === 'exam' ? 51 : 85))) stipend = { level: 'great', title: 'Повышенная — реально', text: 'Если сдадите сессию на «отлично», сохраните повышенную стипендию.' };
-  else stipend = { level: 'good', title: 'Сохраняется', text: 'При сдаче сессии без троек стипендия сохранится.' };
+  // Для обучающихся по договору блок о стипендии не показывается вовсе
+  if (st.funding !== 'Бюджет') stipend = null;
+  else if (debts.length) stipend = { level: 'bad', title: 'Пока нет оснований', text: 'Есть академическая задолженность. После ее закрытия основания для стипендии появятся.' };
+  else if (risks.length) stipend = { level: 'warn', title: 'Основания зависят от сессии', text: `${risks.length} ${risks.length === 1 ? 'дисциплина требует' : 'дисциплины требуют'} внимания. При сдаче сессии на «хорошо» и «отлично» основания сохранятся.` };
+  else if (current.every((c) => c.projected >= (c.control === 'exam' ? 51 : 85))) stipend = { level: 'great', title: 'Есть основания для повышенной', text: 'При сдаче сессии на «отлично» основания для повышенной стипендии сохранятся.' };
+  else stipend = { level: 'good', title: 'Есть основания', text: 'При сдаче сессии без троек стипендия сохранится.' };
 
   return {
     semester: st.semester, current, semesters, debts,

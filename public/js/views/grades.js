@@ -25,7 +25,7 @@ function currentTab(g) {
   const risks = g.current.filter((c) => c.status !== 'ok');
   return `<div class="grid c2" style="align-items:start">
     <div class="stack">
-      <div class="stipend ${g.summary.stipend.level}"><div class="ico">${icon('wallet')}</div><div><b>Прогноз стипендии: ${esc(g.summary.stipend.title)}</b><p class="small muted" style="margin-top:2px">${esc(g.summary.stipend.text)}</p></div></div>
+      ${g.summary.stipend ? `<div class="stipend ${g.summary.stipend.level}"><div class="ico">${icon('wallet')}</div><div><b>Прогноз стипендии: ${esc(g.summary.stipend.title)}</b><p class="small muted" style="margin-top:2px">${esc(g.summary.stipend.text)}</p></div></div>` : ''}
       ${risks.length ? `<div class="card" style="border-color:var(--warn)"><b>${icon('target')} Фокус недели</b><p class="small muted" style="margin-top:4px">Больше всего внимания требуют: ${risks.map((r) => `<b>${esc(r.name)}</b> (${esc(r.label.toLowerCase())})`).join(', ')}.</p></div>` : `<div class="card row"><div class="ring" style="--p:100;--c:var(--ok)"><b>${icon('check')}</b></div><div><b>Все дисциплины в графике</b><p class="small muted">Так держать — допуски и автоматы по прогнозу ваши.</p></div></div>`}
     </div>
     <div class="card"><div class="card-h"><h2>Шкала, 100 баллов</h2></div>
