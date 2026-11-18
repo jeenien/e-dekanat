@@ -6,7 +6,7 @@ const S = require('./services');
 
 const nowIso = () => new Date().toISOString();
 
-// Свободные окна приёма в деканате: ближайшие 5 рабочих дней, 10:00–16:30, кроме обеда
+// Свободные окна приема в деканате: ближайшие 5 рабочих дней, 10:00–16:30, кроме обеда
 function appointmentSlots(db) {
   const taken = new Set(db.prepare("SELECT payload FROM requests WHERE type = 'appointment' AND status NOT IN ('rejected','done')").all().map((r) => JSON.parse(r.payload).slot));
   const days = [];
@@ -99,7 +99,7 @@ function createRequest(db, user, type, body) {
   if (!TYPES[type]) return { status: 400, body: { error: 'Неизвестный тип заявки' } };
   const { errors, clean, t } = validate(type, body || {}, db, user.id);
   if (Object.keys(errors).length) return { status: 422, body: { error: 'Проверьте поля формы', fields: errors } };
-  // Защита от случайных дублей: та же заявка, ещё не закрытая, в течение 2 минут
+  // Защита от случайных дублей: та же заявка, еще не закрытая, в течение 2 минут
   const dup = db.prepare("SELECT public_id FROM requests WHERE student_id = ? AND type = ? AND payload = ? AND created_at > ?").get(user.id, type, JSON.stringify(clean), new Date(Date.now() - 120e3).toISOString());
   if (dup) return { status: 200, body: { id: dup.public_id, duplicate: true } };
 
@@ -109,7 +109,7 @@ function createRequest(db, user, type, body) {
   const pid = publicId('Z');
   const docCode = instant && t.document ? publicId('D') : null;
   let title = t.title;
-  if (type === 'appointment') title = `Приём в деканате · ${clean.slot.slice(8, 10)}.${clean.slot.slice(5, 7)} в ${clean.slot.slice(11)}`;
+  if (type === 'appointment') title = `Прием в деканате · ${clean.slot.slice(8, 10)}.${clean.slot.slice(5, 7)} в ${clean.slot.slice(11)}`;
   const r = db.prepare('INSERT INTO requests (public_id, student_id, type, title, payload, status, created_at, updated_at, eta, doc_code) VALUES (?,?,?,?,?,?,?,?,?,?)')
     .run(pid, user.id, type, title, JSON.stringify(clean), status, now, now, instant ? null : addDaysWorking(Math.max(1, t.sla_days)), docCode);
   const ev = db.prepare('INSERT INTO request_events (request_id, kind, status, author_role, author_name, text, created_at) VALUES (?,?,?,?,?,?,?)');

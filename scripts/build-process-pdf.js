@@ -9,7 +9,7 @@ const font = (w) => `@font-face{font-family:Manrope;font-weight:${w};src:url(../
 const html = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><style>
 ${[400, 600, 800].map(font).join('')}
 body{font:12px/1.55 Manrope,sans-serif;color:#121731;max-width:900px;margin:0 auto;padding:0 8px}
-h1{font-size:26px;background:linear-gradient(135deg,#4f46e5,#e8458b);-webkit-background-clip:text;color:transparent}
+h1{font-size:26px;color:#1f3a7a}
 h2{font-size:18px;margin-top:28px;border-bottom:2px solid #eceafe;padding-bottom:4px;page-break-after:avoid}h3{font-size:14px;page-break-after:avoid}
 table{border-collapse:collapse;width:100%;margin:8px 0;page-break-inside:avoid}td,th{border:1px solid #e4e7f2;padding:5px 7px;vertical-align:top;text-align:left}th{background:#f4f5fb}
 blockquote{margin:0;padding:8px 12px;background:#fff6e0;border-radius:8px;color:#7a4b00}

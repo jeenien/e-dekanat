@@ -15,7 +15,7 @@ function nowCard(today, nextDays) {
   const next = active.find((l) => minutes(l.start) > nowM);
   if (cur) {
     const p = Math.round((nowM - minutes(cur.start)) / (minutes(cur.end) - minutes(cur.start)) * 100);
-    return `<div class="card now-card"><div class="row between"><span class="lbl">Идёт сейчас · ${cur.pair} пара</span><span class="chip">до ${cur.end}</span></div>
+    return `<div class="card now-card"><div class="row between"><span class="lbl">Идет сейчас · ${cur.pair} пара</span><span class="chip">до ${cur.end}</span></div>
       <h3>${esc(cur.subject)}</h3><div class="meta"><span>${icon('map', 'sm')} ${esc(cur.room)}</span><span>${icon('teacher', 'sm')} ${esc(cur.teacher)}</span></div>
       <div class="bar" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100"><i style="width:${p}%"></i></div>
       ${next ? `<p class="small" style="margin-top:10px;opacity:.9">Дальше: ${esc(next.subject)} в ${next.start}, ${esc(next.room)}</p>` : ''}</div>`;
@@ -51,6 +51,31 @@ export function bindDeadlines(root, onChange) {
   });
 }
 
+// Пропуски: шкала с порогами «выговор» и «отчисление», без лишнего текста
+export function absenceMeter(a) {
+  const max = a.limits.expulsion;
+  const pct = (x) => Math.min(100, x / max * 100);
+  const cls = a.hours >= a.limits.warning ? 'bad' : a.level === 'near' ? 'warn' : '';
+  return `<div class="meter" role="img" aria-label="Пропущено ${a.hours} академических часов из ${a.limits.warning} до выговора">
+    <i class="${cls}" style="width:${pct(a.hours)}%"></i>
+    <span class="th" style="left:${pct(a.limits.warning)}%"><b>${a.limits.warning} ч</b><small>выговор</small></span>
+    <span class="th end" style="left:calc(100% - 2px)"><b>${a.limits.expulsion} ч</b><small>отчисление</small></span></div>`;
+}
+function absenceCard(a) {
+  const chip = a.level === 'ok' ? '<span class="chip ok">в норме</span>' : a.level === 'near' ? '<span class="chip warn">близко к лимиту</span>' : a.level === 'warning' ? '<span class="chip bad">лимит превышен</span>' : '<span class="chip bad">критично</span>';
+  return `<a class="card" href="#/campus" style="color:var(--text);display:block"><div class="card-h"><h2>Пропуски</h2>${chip}</div>
+    <div class="row between" style="align-items:flex-end"><div class="big-num">${a.hours} <small>ак. ч</small></div>
+      <div class="small muted" style="text-align:right">${a.left_to_warning ? `до выговора ${a.left_to_warning} ч<br>≈ ${Math.ceil(a.left_to_warning / 2)} ${plural(Math.ceil(a.left_to_warning / 2), 'пара', 'пары', 'пар')}` : ''}${a.excused_hours ? `<div class="xs faint">+ ${a.excused_hours} ч по справке</div>` : ''}</div></div>
+    ${absenceMeter(a)}</a>`;
+}
+const hmin = (m) => `${Math.floor(m / 60)} ч ${String(m % 60).padStart(2, '0')} мин`;
+function campusMini(c) {
+  const t = c.today;
+  return `<a class="card row" href="#/campus/passes" style="color:var(--text)"><div class="li" style="padding:0;border:0;min-height:0"><div class="ico ${t.inside ? 'ok' : ''}">${icon('pin')}</div></div>
+    <div class="grow"><b>${t.inside ? `В университете с ${t.first_in}` : t.first_in ? `Сегодня: ${t.first_in}–${t.last_out}` : 'Сегодня проходов нет'}</b>
+    <div class="small muted">${t.minutes ? hmin(t.minutes) + ' сегодня · ' : ''}${Math.round(c.week_minutes / 60)} ч за неделю</div></div>${icon('chevronRight')}</a>`;
+}
+
 export async function render(ctx) {
   ctx.setTitle('Сегодня');
   const d = await api(`/dashboard?date=${todayISO()}`);
@@ -60,10 +85,13 @@ export async function render(ctx) {
   const t = parseISO(today.date);
   const activeChanges = d.changes.filter((c) => c.date >= today.date);
   const g = d.grades;
+  const firstExam = d.session.exams.find((e) => e.control_label === 'Экзамен') || d.session.exams[0];
 
   ctx.el.innerHTML = `<div class="page stack">
     <div class="hello"><h2>${greeting()}, ${esc(u.first_name)}!</h2>
-      <p>${fmt.wdFull(t)[0].toUpperCase() + fmt.wdFull(t).slice(1)}, ${fmt.dm(t)} · ${today.week}-я неделя, ${today.parity === 'odd' ? 'нечётная' : 'чётная'}</p></div>
+      <p>${fmt.wdFull(t)[0].toUpperCase() + fmt.wdFull(t).slice(1)}, ${fmt.dm(t)} · ${today.week}-я неделя, ${today.parity === 'odd' ? 'нечетная' : 'четная'}</p></div>
+    ${d.retakes.map((r) => `<a class="banner-retake" href="#/schedule/${esc(r.date)}"><span class="ico">${icon('refresh', 'lg')}</span><div class="grow"><div class="row between" style="align-items:flex-start"><b>У вас пересдача</b><span class="chip warn">${fmt.until(r.date + 'T' + r.start)}</span></div>
+      <div style="font-weight:700;margin-top:2px">${esc(r.discipline)}</div><div class="small muted">${fmt.dayTitle(parseISO(r.date))}, ${r.start} · ауд. ${esc(r.room)} · ${esc(r.examiner)}</div></div></a>`).join('')}
     ${activeChanges.length ? `<a class="card row" href="#/schedule" style="background:var(--warn-soft);border-color:transparent;color:var(--text)">
       <div class="ico" style="color:var(--warn)">${icon('alert', 'lg')}</div><div class="grow"><b>${activeChanges.length} ${plural(activeChanges.length, 'изменение', 'изменения', 'изменений')} в расписании</b>
       <div class="small muted">${activeChanges.slice(0, 2).map((c) => `${fmt.dmShort(parseISO(c.date))}: ${esc(changeLabel(c.change))} — ${esc(c.subject)}`).join(' · ')}</div></div>${icon('chevronRight')}</a>` : ''}
@@ -81,22 +109,24 @@ export async function render(ctx) {
         <section class="card"><div class="card-h"><h2>Дедлайны</h2><span class="chip">${d.deadlines.filter((x) => !x.done).length} открыто</span></div><div id="dls">${deadlineList(d.deadlines, true)}</div></section>
       </div>
       <div class="stack">
-        <section class="card"><div class="card-h"><h2>Учёба</h2><a href="#/grades">Подробнее ${icon('chevronRight', 'sm')}</a></div>
+        ${absenceCard(d.absences)}
+        ${campusMini(d.campus)}
+        <section class="card"><div class="card-h"><h2>Учеба</h2><a href="#/grades">Подробнее ${icon('chevronRight', 'sm')}</a></div>
           <div class="stat-row">
             <div class="stat"><b>${g.gpa ?? '—'}</b><span>${g.gpa ? 'средний балл' : 'сессий не было'}</span></div>
             <div class="stat"><b style="color:${g.risks ? 'var(--bad)' : 'var(--ok)'}">${g.risks}</b><span>в зоне риска</span></div>
             <div class="stat"><b style="color:${g.debts ? 'var(--bad)' : 'var(--ok)'}">${g.debts}</b><span>${plural(g.debts, 'долг', 'долга', 'долгов')}</span></div>
           </div>
           <div class="stipend ${g.stipend.level}" style="margin-top:10px;padding:12px"><div class="ico">${icon('wallet')}</div><div><b>Стипендия: ${esc(g.stipend.title)}</b><div class="small muted">${esc(g.stipend.text)}</div></div></div>
-          ${d.session.exams[0] ? `<a class="li" href="#/grades/session" style="padding:12px 0 0;border:0;min-height:0"><div class="ico">${icon('target')}</div><div class="grow"><div class="t">${esc(d.session.name)}</div><div class="s">Первое испытание ${fmt.dmShort(parseISO(d.session.exams[0].date))} · ${fmt.until(d.session.exams[0].date)}</div></div>${icon('chevronRight')}</a>` : ''}
+          ${firstExam ? `<a class="li" href="#/grades/session" style="padding:12px 0 0;border:0;min-height:0"><div class="ico">${icon('target')}</div><div class="grow"><div class="t">${esc(d.session.name)}</div><div class="s">Первый экзамен ${fmt.dmShort(parseISO(firstExam.date))} · ${fmt.until(firstExam.date)}</div></div>${icon('chevronRight')}</a>` : ''}
         </section>
         <section class="card pad-0"><div class="card-h" style="padding:16px 16px 0"><h2>Заявки</h2><a href="#/requests">Все ${icon('chevronRight', 'sm')}</a></div>
-          ${d.requests.length ? `<div class="list">${d.requests.map((r) => `<a class="li" href="#/requests/${esc(r.id)}"><div class="ico ${STATUS_META[r.status].cls}">${icon(STATUS_META[r.status].ico)}</div><div class="grow"><div class="t ellipsis">${esc(r.title)}</div><div class="s">${r.status === 'need_info' ? 'Деканат ждёт ответа' : r.eta && !['ready', 'done', 'rejected'].includes(r.status) ? `Готово до ${fmt.dmShort(parseISO(r.eta))}` : fmt.ago(r.updated_at)}</div></div>${statusChip(r)}</a>`).join('')}</div>`
+          ${d.requests.length ? `<div class="list">${d.requests.map((r) => `<a class="li" href="#/requests/${esc(r.id)}"><div class="ico ${STATUS_META[r.status].cls}">${icon(STATUS_META[r.status].ico)}</div><div class="grow"><div class="t ellipsis">${esc(r.title)}</div><div class="s">${r.status === 'need_info' ? 'Деканат ждет ответа' : r.eta && !['ready', 'done', 'rejected'].includes(r.status) ? `Готово до ${fmt.dmShort(parseISO(r.eta))}` : fmt.ago(r.updated_at)}</div></div>${statusChip(r)}</a>`).join('')}</div>`
             : `<div style="padding:0 16px 8px">${empty('inbox', 'Активных заявок нет', 'Справку или заявление можно оформить за минуту.', '<a class="btn soft sm" href="#/requests/new">Оформить</a>')}</div>`}
         </section>
         <section class="card pad-0"><div class="card-h" style="padding:16px 16px 0"><h2>Новое</h2><a href="#/notifications">Лента ${icon('chevronRight', 'sm')}</a></div>
           ${d.notifications.latest.length ? `<div class="list">${d.notifications.latest.map((n) => `<a class="li" href="${n.link ? esc(n.link) : '#/notifications'}"><div class="ico ${n.category === 'deadline' ? 'bad' : n.category === 'schedule' ? 'warn' : n.category === 'request' ? 'ok' : 'info'}">${icon(n.category === 'deadline' ? 'flame' : n.category === 'schedule' ? 'calendar' : n.category === 'request' ? 'docs' : 'megaphone')}</div><div class="grow"><div class="t ellipsis">${esc(n.title)}</div><div class="s ellipsis">${esc(n.body)}</div></div></a>`).join('')}</div>`
-            : `<div style="padding:0 16px 8px">${empty('bell', 'Всё прочитано', 'Новые объявления деканата появятся здесь.')}</div>`}
+            : `<div style="padding:0 16px 8px">${empty('bell', 'Все прочитано', 'Новые объявления деканата появятся здесь.')}</div>`}
         </section>
       </div>
     </div></div>`;

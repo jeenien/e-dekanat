@@ -2,7 +2,7 @@
 import { api, esc, icon, fmt, empty, toast } from '../lib.js';
 
 const CATS = [['all', 'Все'], ['unread', 'Непрочитанные'], ['schedule', 'Расписание'], ['request', 'Заявки'], ['deadline', 'Дедлайны'], ['news', 'Новости']];
-const CAT_META = { news: ['megaphone', 'info', 'Новость'], schedule: ['calendar', 'warn', 'Расписание'], deadline: ['flame', 'bad', 'Дедлайн'], request: ['docs', 'ok', 'Заявка'], grades: ['grades', 'accent', 'Учёба'], finance: ['wallet', 'ok', 'Финансы'] };
+const CAT_META = { news: ['megaphone', 'info', 'Новость'], schedule: ['calendar', 'warn', 'Расписание'], deadline: ['flame', 'bad', 'Дедлайн'], request: ['docs', 'ok', 'Заявка'], grades: ['grades', 'accent', 'Учеба'], finance: ['wallet', 'ok', 'Финансы'] };
 
 export async function render(ctx) {
   ctx.setTitle('Лента');
@@ -21,7 +21,7 @@ export async function render(ctx) {
           <div class="grow"><div class="t">${n.pinned ? icon('pin', 'sm') + ' ' : ''}${esc(n.title)}</div><div class="b">${esc(n.body)}</div>
           <div class="meta"><span class="chip ${cls}">${lbl}</span>${n.important ? '<span class="chip accent">важно</span>' : ''}<span>${esc(n.author || '')}</span><span>${fmt.ago(n.created_at)}</span>
           ${n.link ? `<a class="link" href="${esc(n.link)}" data-open="${esc(n.id)}">Перейти ${icon('arrowRight', 'sm')}</a>` : ''}</div></div></article>`;
-      }).join('') : `<div style="padding:8px 16px">${empty(filter === 'unread' ? 'checkCircle' : 'bell', filter === 'unread' ? 'Всё прочитано' : 'Здесь пока пусто', filter === 'unread' ? 'Новые уведомления появятся здесь.' : 'Когда деканат что-то опубликует, вы увидите это первым.')}</div>`}</section></div>`;
+      }).join('') : `<div style="padding:8px 16px">${empty(filter === 'unread' ? 'checkCircle' : 'bell', filter === 'unread' ? 'Все прочитано' : 'Здесь пока пусто', filter === 'unread' ? 'Новые уведомления появятся здесь.' : 'Когда деканат что-то опубликует, вы увидите это первым.')}</div>`}</section></div>`;
     ctx.el.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filter = b.dataset.f; draw(); });
     ctx.el.querySelector('#readall')?.addEventListener('click', async () => {
       try { await api('/notifications/read', { method: 'POST', body: { all: true } }); list = list.map((n) => (n.virtual ? n : { ...n, read: true })); draw(); ctx.refreshBadges(); toast('Все уведомления прочитаны'); }

@@ -115,7 +115,7 @@ test('сценарий: проверка формы и работа декана
   assert.deepEqual(Object.keys(created.payload), ['office'], 'лишние поля отбрасываются');
 
   const staff = await login('dekanat');
-  assert.equal((await call(`/api/staff/requests/${ok.json.id}/status`, { method: 'POST', cookie: staff, body: { status: 'rejected' } })).status, 400, 'отказ без причины запрещён');
+  assert.equal((await call(`/api/staff/requests/${ok.json.id}/status`, { method: 'POST', cookie: staff, body: { status: 'rejected' } })).status, 400, 'отказ без причины запрещен');
   assert.equal((await call(`/api/staff/requests/${ok.json.id}/status`, { method: 'POST', cookie: staff, body: { status: 'ready', comment: 'Заберите в А-112' } })).status, 200);
   const after = (await call(`/api/requests/${ok.json.id}`, { cookie: timur })).json;
   assert.equal(after.status, 'ready');
@@ -123,6 +123,39 @@ test('сценарий: проверка формы и работа декана
   assert.ok(notes.some((n) => n.title.includes('Справка в военкомат')));
   const anna = await login('anna');
   assert.ok(!(await call('/api/notifications', { cookie: anna })).json.some((n) => n.title.includes('Справка в военкомат')), 'уведомление Тимура не видно Анне');
+});
+
+test('посещаемость и СКУД: студент видит только свое, деканат — всех', async () => {
+  const anna = await login('anna');
+  const timur = await login('timur');
+  const a = (await call('/api/attendance', { cookie: anna })).json;
+  const t = (await call('/api/attendance', { cookie: timur })).json;
+  assert.ok(a.absences.hours < t.absences.hours, 'у Тимура пропусков больше');
+  assert.equal(a.absences.limits.warning, 30); assert.equal(a.absences.limits.expulsion, 60);
+  assert.equal(a.absences.hours % 2, 0, 'пара = 2 академических часа');
+  assert.equal(t.retakes.length, 1, 'у Тимура назначена пересдача');
+  assert.equal(a.retakes.length, 0);
+  // пересдача видна в расписании Тимура и не видна Анне
+  const sched = (await call(`/api/schedule?from=${t.retakes[0].date}&days=1`, { cookie: timur })).json;
+  assert.ok(sched.days[0].lessons.some((l) => l.change?.type === 'retake'));
+  assert.equal((await call('/api/staff/students', { cookie: anna })).status, 403);
+  const staff = await login('dekanat');
+  const list = (await call('/api/staff/students', { cookie: staff })).json;
+  assert.equal(list.length, 3);
+  const me = list.find((x) => x.name.startsWith('Ветрова'));
+  const det = await call(`/api/staff/students/${me.id}/attendance`, { cookie: staff });
+  assert.equal(det.status, 200); assert.ok(Array.isArray(det.json.campus.days));
+  // назначение пересдачи деканатом приходит студенту уведомлением
+  const r = await call('/api/staff/retakes', { method: 'POST', cookie: staff, body: { student_id: me.id, discipline: 'Базы данных', date: t.retakes[0].date, pair: 6, room: 'Б-318', examiner: 'Мирская Е. В.' } });
+  assert.equal(r.status, 201);
+  assert.ok((await call('/api/notifications', { cookie: anna })).json.some((n) => n.title === 'Назначена пересдача'));
+  assert.equal((await call('/api/staff/retakes', { method: 'POST', cookie: anna, body: {} })).status, 403);
+});
+
+test('услуги: обычной пересдачи нет, есть ректорская', async () => {
+  const timur = await login('timur');
+  const types = (await call('/api/request-types', { cookie: timur })).json.map((x) => x.id);
+  assert.ok(!types.includes('retake')); assert.ok(types.includes('rector_retake'));
 });
 
 test('выход завершает сессию', async () => {

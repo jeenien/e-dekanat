@@ -1,6 +1,6 @@
 // Профиль: студенческий, личные данные (скрыты по умолчанию), безопасность и устройства.
 import { api, esc, icon, fmt, toast, initials } from '../lib.js';
-import { logout, toggleTheme } from '../app.js';
+import { logout, setLook, applyLook, ACCENTS } from '../app.js';
 
 export async function render(ctx) {
   ctx.setTitle('Профиль');
@@ -22,12 +22,14 @@ export async function render(ctx) {
           <dt>Курс и группа</dt><dd>${u.course} курс · ${esc(u.group)}</dd>
           <dt>Форма</dt><dd>${esc(u.study_form)}, ${esc(u.funding.toLowerCase())}</dd></dl></section>
       <section class="card"><div class="card-h"><h2>Личные данные</h2><span class="chip">${icon('lock', 'sm')} зашифрованы</span></div>
-        <dl class="kv"><dt>Зачётная книжка</dt><dd>${masked(u.record_book)}</dd><dt>E-mail</dt><dd>${masked(u.email)}</dd><dt>Телефон</dt><dd>${masked(u.phone)}</dd>
+        <dl class="kv"><dt>Зачетная книжка</dt><dd>${masked(u.record_book)}</dd><dt>E-mail</dt><dd>${masked(u.email)}</dd><dt>Телефон</dt><dd>${masked(u.phone)}</dd>
         <dt>Дата рождения</dt><dd>${masked(u.birth_date ? new Date(u.birth_date).toLocaleDateString('ru-RU') : '')}</dd><dt>Куратор</dt><dd>${esc(u.curator || '—')}</dd><dt>Стипендия</dt><dd>${esc(u.stipend || '—')}</dd></dl>
         <p class="xs faint" style="margin-top:10px">Нажмите на скрытое поле, чтобы показать. В базе эти данные хранятся в зашифрованном виде (AES-256-GCM).</p></section>`
       : `<section class="card"><div class="profile-head"><div class="avatar">${esc(initials(u))}</div><div><h2>${esc(u.last_name)} ${esc(u.first_name)} ${esc(u.middle_name || '')}</h2><p class="muted">${esc(u.position || 'Сотрудник деканата')}</p></div></div></section>`}
+      <section class="card" id="look"><h2 style="font-size:17px;margin-bottom:12px">Оформление</h2>
+        <div class="field"><span class="lbl">Световая схема</span><div class="seg" role="radiogroup" aria-label="Световая схема">${[['light', 'sun', 'Светлая'], ['dark', 'moon', 'Темная'], ['auto', 'monitor', 'Как в системе']].map(([k, i, t]) => `<button type="button" role="radio" data-scheme="${k}">${icon(i, 'sm')} ${t}</button>`).join('')}</div></div>
+        <div class="field" style="margin:0"><span class="lbl">Акцентный цвет</span><div class="swatches" role="radiogroup" aria-label="Акцентный цвет">${ACCENTS.map(([k, c, t]) => `<button type="button" role="radio" data-accent="${k}" title="${t}" aria-label="${t}" style="background:${c}"></button>`).join('')}</div></div></section>
       <section class="card pad-0"><div class="list">
-        <button class="li" id="theme"><div class="ico">${icon('moon')}</div><div class="grow"><div class="t">Тема оформления</div><div class="s">Светлая или тёмная</div></div>${icon('chevronRight')}</button>
         ${isStudent ? `<a class="li" href="/api/schedule.ics" download><div class="ico info">${icon('calendarPlus')}</div><div class="grow"><div class="t">Расписание в календарь телефона</div><div class="s">Файл .ics на 4 недели</div></div>${icon('download')}</a>` : ''}
         <button class="li" id="logout"><div class="ico bad">${icon('logout')}</div><div class="grow"><div class="t">Выйти</div></div></button></div></section>
     </div>
@@ -50,7 +52,15 @@ export async function render(ctx) {
     const t = () => { m.classList.toggle('show'); m.setAttribute('aria-label', m.classList.contains('show') ? 'Скрыть' : 'Показать'); };
     m.onclick = t; m.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t(); } };
   });
-  ctx.el.querySelector('#theme').onclick = toggleTheme;
+  const look = ctx.el.querySelector('#look');
+  const paint = () => {
+    const cur = applyLook();
+    look.querySelectorAll('[data-scheme]').forEach((b) => { const on = b.dataset.scheme === cur.scheme; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+    look.querySelectorAll('[data-accent]').forEach((b) => { const on = b.dataset.accent === cur.accent; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+  };
+  look.querySelectorAll('[data-scheme]').forEach((b) => b.onclick = () => { setLook({ scheme: b.dataset.scheme }); paint(); });
+  look.querySelectorAll('[data-accent]').forEach((b) => b.onclick = () => { setLook({ accent: b.dataset.accent }); paint(); });
+  paint();
   ctx.el.querySelector('#logout').onclick = logout;
   ctx.el.querySelector('#revoke')?.addEventListener('click', async () => {
     try { const r = await api('/security/revoke-others', { method: 'POST' }); toast(`Завершено сеансов: ${r.revoked}`); render(ctx); } catch (e) { toast(e.message, 'bad'); }
@@ -58,7 +68,7 @@ export async function render(ctx) {
   ctx.el.querySelector('#pwd').onsubmit = async (e) => {
     e.preventDefault();
     const f = e.currentTarget;
-    try { await api('/auth/password', { method: 'POST', body: { current: f.cur.value, next: f.nw.value } }); toast('Пароль изменён'); f.reset(); render(ctx); }
+    try { await api('/auth/password', { method: 'POST', body: { current: f.cur.value, next: f.nw.value } }); toast('Пароль изменен'); f.reset(); render(ctx); }
     catch (err) { toast(err.message, 'bad'); }
   };
 }

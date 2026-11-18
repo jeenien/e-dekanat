@@ -2,11 +2,12 @@
 import { api, esc, icon, fmt, parseISO, isoDate, addDays, todayISO, minutes, empty, kindClass, plural } from '../lib.js';
 
 export function changeLabel(c) {
-  return { cancel: 'Отмена', room: 'Новая аудитория', teacher: 'Замена преподавателя', extra: 'Доп. занятие', move: 'Перенос', moved_in: 'Перенесено сюда' }[c.type] || 'Изменение';
+  return { cancel: 'Отмена', room: 'Новая аудитория', teacher: 'Замена преподавателя', extra: 'Доп. занятие', move: 'Перенос', moved_in: 'Перенесено сюда', retake: 'Пересдача' }[c.type] || 'Изменение';
 }
 function changeNote(l) {
   const c = l.change; if (!c) return '';
   const cls = c.type === 'cancel' ? 'bad' : c.type === 'extra' || c.type === 'moved_in' ? 'info' : 'warn';
+  if (c.type === 'retake') return `<div class="change-note warn">${icon('refresh', 'sm')} Ваша пересдача · ${esc(c.note || '')}</div>`;
   let txt = changeLabel(c);
   if (c.type === 'room') txt += `: ${l.room} вместо ${c.old_room}`;
   if (c.type === 'teacher') txt += `: вместо ${c.old_teacher}`;
@@ -57,7 +58,7 @@ export async function render(ctx) {
   ctx.el.innerHTML = `<div class="page stack">
     <div class="row wrap between">
       <div class="row"><a class="icon-btn" href="#/schedule/${prevW}" aria-label="Предыдущая неделя">${icon('chevronLeft')}</a>
-        <div><b>${fmt.dmShort(monday)} — ${fmt.dmShort(addDays(monday, 6))}</b><div class="xs faint">${days[0].week}-я неделя · ${days[0].parity === 'odd' ? 'нечётная' : 'чётная'} · ${esc(data.group)}</div></div>
+        <div><b>${fmt.dmShort(monday)} — ${fmt.dmShort(addDays(monday, 6))}</b><div class="xs faint">${days[0].week}-я неделя · ${days[0].parity === 'odd' ? 'нечетная' : 'четная'} · ${esc(data.group)}</div></div>
         <a class="icon-btn" href="#/schedule/${nextW}" aria-label="Следующая неделя">${icon('chevronRight')}</a></div>
       <div class="row">${sel !== todayISO() ? `<a class="btn sm ghost" href="#/schedule">Сегодня</a>` : ''}
         <a class="btn sm soft" href="/api/schedule.ics" download>${icon('calendarPlus', 'sm')} <span>В календарь</span></a></div>
@@ -77,7 +78,7 @@ export async function render(ctx) {
           <div class="faint">${l.pair} · ${l.start}–${l.end}</div><b>${esc(l.subject)}</b><div class="faint">${esc(l.kind)} · ${esc(l.room)}</div><div class="faint">${esc(l.teacher)}</div>
           ${l.change ? `<div class="xs" style="color:${l.change.type === 'cancel' ? 'var(--bad)' : 'var(--warn)'};font-weight:800;margin-top:2px">${esc(changeLabel(l.change))}</div>` : ''}</div>`).join('') : '<div class="faint small" style="padding:8px 2px">Пар нет</div>'}</div>`;
     }).join('')}</div>
-    <div class="row wrap small faint" style="gap:14px"><span class="row" style="gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:var(--brand)"></i>лекция</span><span class="row" style="gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:var(--ok)"></i>практика / семинар</span><span class="row" style="gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:var(--accent)"></i>лабораторная</span><span class="row" style="gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:var(--info)"></i>другое</span></div>
+    <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>практика</span><span><i class="sw lab"></i>лабораторная</span><span><i class="sw oth"></i>другое</span><span><i class="sw" style="background:var(--warn)"></i>пересдача / изменение</span></div>
   </div>`;
   ctx.el.querySelectorAll('.week-strip [data-date]').forEach((b) => b.onclick = () => { history.replaceState(null, '', `#/schedule/${b.dataset.date}`); ctx.params.date = b.dataset.date; render(ctx); });
 }

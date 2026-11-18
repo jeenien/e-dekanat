@@ -1,4 +1,4 @@
-// Каталог услуг деканата. Описание полей формы живёт на сервере:
+// Каталог услуг деканата. Описание полей формы живет на сервере:
 // фронтенд строит форму по этой схеме, а сервер по ней же проверяет ввод.
 
 const PURPOSES = ['По месту требования', 'По месту работы родителей', 'Социальная защита / пенсионный фонд', 'Для оформления визы', 'Для налогового вычета', 'Другое'];
@@ -18,7 +18,7 @@ const TYPES = {
     ],
   },
   transcript: {
-    title: 'Выписка из зачётной книжки', group: 'Справки', icon: 'grades', popular: true,
+    title: 'Выписка из зачетной книжки', group: 'Справки', icon: 'grades', popular: true,
     description: 'Все оценки за выбранные семестры. Русская версия формируется сразу, английская — за 5 дней.',
     sla_days: 5, instant_if: { lang: 'ru' }, document: true,
     fields: [
@@ -44,14 +44,13 @@ const TYPES = {
       { name: 'office', label: 'Военный комиссариат', type: 'text', maxLength: 150, required: true, placeholder: 'Например: по Центральному району' },
     ],
   },
-  retake: {
-    title: 'Пересдача', group: 'Заявления', icon: 'refresh', popular: true,
-    description: 'Направление на пересдачу экзамена или зачёта. Деканат согласует дату с преподавателем.',
-    sla_days: 3,
+  rector_retake: {
+    title: 'Ректорская пересдача', group: 'Заявления', icon: 'refresh',
+    description: 'Если обычные пересдачи, которые назначают деканат и кафедра, уже использованы. Решение принимает проректор, срок рассмотрения — до 5 рабочих дней.',
+    sla_days: 5,
     fields: [
       { name: 'discipline', label: 'Дисциплина', type: 'discipline', required: true },
-      { name: 'preferred', label: 'Удобные даты', type: 'text', maxLength: 120, placeholder: 'Например: будни после 15:00' },
-      { name: 'reason', label: 'Комментарий', type: 'textarea', maxLength: 600 },
+      { name: 'reason', label: 'Почему нужна ректорская пересдача', type: 'textarea', maxLength: 1000, required: true, placeholder: 'Например: болел во время обеих пересдач, справка есть' },
     ],
   },
   financial_aid: {
@@ -59,13 +58,13 @@ const TYPES = {
     description: 'Рассматривает стипендиальная комиссия раз в две недели.',
     sla_days: 14,
     fields: [
-      { name: 'reason', label: 'Основание', type: 'select', required: true, options: ['Трудное материальное положение', 'Лечение', 'Рождение ребёнка', 'Утрата имущества', 'Другое'] },
+      { name: 'reason', label: 'Основание', type: 'select', required: true, options: ['Трудное материальное положение', 'Лечение', 'Рождение ребенка', 'Утрата имущества', 'Другое'] },
       { name: 'details', label: 'Опишите ситуацию', type: 'textarea', maxLength: 1500, required: true },
     ],
   },
   academic_leave: {
     title: 'Академический отпуск', group: 'Заявления', icon: 'coffee',
-    description: 'Перерыв в учёбе до двух лет с сохранением места. Нужны подтверждающие документы.',
+    description: 'Перерыв в учебе до двух лет с сохранением места. Нужны подтверждающие документы.',
     sla_days: 10,
     fields: [
       { name: 'reason', label: 'Основание', type: 'select', required: true, options: ['Медицинские показания', 'Семейные обстоятельства', 'Призыв на военную службу', 'Другое'] },
@@ -83,7 +82,7 @@ const TYPES = {
     ],
   },
   appointment: {
-    title: 'Запись на приём', group: 'Связь с деканатом', icon: 'clock', popular: true,
+    title: 'Запись на прием', group: 'Связь с деканатом', icon: 'clock', popular: true,
     description: 'Выберите время — и не стойте в очереди. Подтверждение приходит сразу.',
     sla_days: 0, instant: true,
     fields: [
@@ -93,7 +92,7 @@ const TYPES = {
   },
   question: {
     title: 'Вопрос в деканат', group: 'Связь с деканатом', icon: 'message',
-    description: 'Напишите — ответ придёт сюда же, в переписку по обращению.',
+    description: 'Напишите — ответ придет сюда же, в переписку по обращению.',
     sla_days: 2,
     fields: [
       { name: 'topic', label: 'Тема', type: 'text', maxLength: 120, required: true },

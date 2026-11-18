@@ -1,7 +1,9 @@
 // Кабинет сотрудника деканата: очередь заявок, ответы студентам, объявления, изменения расписания.
-const LABELS = { purpose: 'Назначение', format: 'Формат', copies: 'Экземпляров', comment: 'Комментарий', lang: 'Язык', period: 'Период', office: 'Военкомат', discipline: 'Дисциплина', preferred: 'Удобные даты', reason: 'Основание', details: 'Подробности', from: 'С даты', slot: 'Время приёма', topic: 'Тема', text: 'Текст' };
+const LABELS = { purpose: 'Назначение', format: 'Формат', copies: 'Экземпляров', comment: 'Комментарий', lang: 'Язык', period: 'Период', office: 'Военкомат', discipline: 'Дисциплина', preferred: 'Удобные даты', reason: 'Основание', details: 'Подробности', from: 'С даты', slot: 'Время приема', topic: 'Тема', text: 'Текст' };
 const VALUES = { electronic: 'электронная', paper: 'бумажная', ru: 'русский', en: 'английский' };
-import { api, esc, icon, fmt, parseISO, empty, statusChip, toast, todayISO } from '../lib.js';
+import { api, esc, icon, fmt, parseISO, empty, statusChip, toast, todayISO, plural } from '../lib.js';
+import { hmin, campusBars, passDays, absenceList } from './campus.js';
+import { absenceMeter } from './today.js';
 
 const FILTERS = [['', 'Все'], ['submitted', 'Новые'], ['in_progress', 'В работе'], ['need_info', 'Ждут студента'], ['ready', 'Готовы'], ['done', 'Завершены'], ['rejected', 'Отклонены']];
 let filter = 'submitted';
@@ -57,7 +59,7 @@ export async function renderRequest(ctx) {
       <form class="composer" id="msg"><textarea class="input" maxlength="2000" placeholder="Ответить студенту…" aria-label="Сообщение"></textarea><button class="btn" aria-label="Отправить">${icon('send')}</button></form></section></div>`;
   ctx.el.querySelectorAll('[data-s]').forEach((b) => b.onclick = async () => {
     b.disabled = true;
-    try { await api(`/staff/requests/${encodeURIComponent(r.id)}/status`, { method: 'POST', body: { status: b.dataset.s, comment: ctx.el.querySelector('#cm').value } }); toast('Статус обновлён, студент получил уведомление'); renderRequest(ctx); }
+    try { await api(`/staff/requests/${encodeURIComponent(r.id)}/status`, { method: 'POST', body: { status: b.dataset.s, comment: ctx.el.querySelector('#cm').value } }); toast('Статус обновлен, студент получил уведомление'); renderRequest(ctx); }
     catch (e) { toast(e.message, 'bad'); b.disabled = false; }
   });
   ctx.el.querySelector('#msg').onsubmit = async (e) => {
@@ -79,7 +81,7 @@ export async function renderAnnounce(ctx) {
     <div class="field"><label for="tt">Заголовок</label><input class="input" id="tt" maxlength="140"></div>
     <div class="field"><label for="bd">Текст</label><textarea class="input" id="bd" maxlength="3000"></textarea></div>
     <label class="row small" style="margin-bottom:14px"><input type="checkbox" id="imp"> Важное (выделить в ленте)</label>
-    <button class="btn grad">${icon('megaphone')} Опубликовать</button></form>
+    <button class="btn">${icon('megaphone')} Опубликовать</button></form>
     <div class="card small muted"><b style="color:var(--text)">Подсказка</b><p style="margin-top:6px">Объявление сразу появится в ленте выбранных студентов и на их главном экране. Пишите коротко: что, когда, что нужно сделать.</p></div></div>`;
   ctx.el.querySelector('#an').onsubmit = async (e) => {
     e.preventDefault();
@@ -99,8 +101,8 @@ export async function renderSchedule(ctx) {
     <div class="field"><span class="lbl">Что меняем</span><div class="seg"><button type="button" class="on" data-t="room">Аудиторию</button><button type="button" data-t="cancel">Отменить пару</button></div></div>
     <div class="field" id="roomf"><label for="rm">Новая аудитория</label><input class="input" id="rm" maxlength="30" placeholder="Например: Б-201"></div>
     <div class="field"><label for="nt">Причина / комментарий</label><input class="input" id="nt" maxlength="200"></div>
-    <button class="btn grad">Сохранить и уведомить группу</button></form>
-    <div class="card small muted"><b style="color:var(--text)">Студенты увидят изменение сразу</b><p style="margin-top:6px">Пара подсветится в расписании, на главном экране появится предупреждение, а в ленту придёт уведомление.</p></div></div>`;
+    <button class="btn">Сохранить и уведомить группу</button></form>
+    <div class="card small muted"><b style="color:var(--text)">Студенты увидят изменение сразу</b><p style="margin-top:6px">Пара подсветится в расписании, на главном экране появится предупреждение, а в ленту придет уведомление.</p></div></div>`;
   let type = 'room';
   const form = ctx.el.querySelector('#sc');
   const loadPairs = async () => {
@@ -120,4 +122,58 @@ export async function renderSchedule(ctx) {
     } catch (err) { toast(err.message, 'bad'); }
   };
   loadPairs();
+}
+
+// ---------- Посещаемость студентов (СКУД и пропуски) ----------
+export async function renderStudents(ctx) {
+  ctx.setTitle('Студенты');
+  const list = await api('/staff/students');
+  if (!ctx.isCurrent()) return;
+  const LVL = { ok: ['ok', 'в норме'], near: ['warn', 'близко к лимиту'], warning: ['bad', 'выговор'], expulsion: ['bad', 'отчисление'] };
+  ctx.el.innerHTML = `<div class="page stack">
+    <input class="input" id="sq" placeholder="Поиск: ФИО или группа" style="max-width:360px">
+    <section class="card pad-0"><div class="table-wrap"><table class="table resp"><thead><tr><th>Студент</th><th>Сейчас</th><th>В университете за 7 дней</th><th>Пропуски</th></tr></thead><tbody>
+    ${list.map((s) => `<tr class="click" tabindex="0" data-id="${s.id}" data-q="${esc(`${s.name} ${s.group}`.toLowerCase())}"><td><b>${esc(s.name)}</b><div class="xs faint">${esc(s.group)} · ${s.course} курс</div></td>
+      <td>${s.inside ? `<span class="chip ok">${icon('pin', 'sm')} внутри с ${esc(s.today_in)}</span>` : s.today_in ? `<span class="chip">был(а) с ${esc(s.today_in)}</span>` : '<span class="chip">не приходил(а)</span>'}</td>
+      <td><b>${hmin(s.week_minutes)}</b> <span class="xs faint">· ${s.week_days} ${plural(s.week_days, 'день', 'дня', 'дней')}</span></td>
+      <td><b>${s.absence_hours} ч</b> <span class="chip ${LVL[s.absence_level][0]}">${LVL[s.absence_level][1]}</span></td></tr>`).join('')}
+    </tbody></table></div></section></div>`;
+  ctx.el.querySelectorAll('tr[data-id]').forEach((tr) => {
+    const go = () => { location.hash = `#/staff/students/${tr.dataset.id}`; };
+    tr.onclick = go; tr.onkeydown = (e) => { if (e.key === 'Enter') go(); };
+  });
+  ctx.el.querySelector('#sq').oninput = (e) => { const v = e.target.value.trim().toLowerCase(); ctx.el.querySelectorAll('tr[data-q]').forEach((tr) => { tr.hidden = v && !tr.dataset.q.includes(v); }); };
+}
+
+export async function renderStudent(ctx) {
+  ctx.setTitle('Студент', '#/staff/students');
+  const d = await api(`/staff/students/${encodeURIComponent(ctx.params.id)}/attendance`);
+  if (!ctx.isCurrent()) return;
+  ctx.setTitle(d.student.name, '#/staff/students');
+  const c = d.campus, a = d.absences;
+  ctx.el.innerHTML = `<div class="page stack">
+    <div class="small muted">${esc(d.student.group)} · ${d.student.course} курс</div>
+    <div class="grid c2" style="align-items:start">
+      <section class="card"><div class="card-h"><h2>Пропуски</h2><span class="chip">${a.hours} ак. ч</span></div>${absenceMeter(a)}
+        <details class="more"><summary>${icon('chevronRight', 'sm')} Список (${a.list.length})</summary>${absenceList(a.list)}</details></section>
+      <section class="card"><div class="card-h"><h2>В университете за неделю</h2><span class="chip">${hmin(c.week_minutes)}</span></div>${campusBars(c.days)}</section>
+    </div>
+    <section class="card"><div class="card-h"><h2>Проходы СКУД за 2 недели</h2>${c.inside ? '<span class="chip ok">сейчас внутри</span>' : ''}</div>${passDays(c.days)}</section>
+    <form class="card" id="rt" novalidate><h2 style="font-size:17px;margin-bottom:10px">Назначить пересдачу</h2>
+      ${d.retakes.length ? `<div class="small muted" style="margin-bottom:10px">Уже назначено: ${d.retakes.map((r) => `${esc(r.discipline)} — ${fmt.dmShort(parseISO(r.date))}, ${r.start}`).join('; ')}</div>` : ''}
+      <div class="grid c2" style="gap:0 12px">
+        <div class="field"><label for="rd">Дисциплина</label><input class="input" id="rd" maxlength="150"></div>
+        <div class="field"><label for="rdt">Дата</label><input class="input" type="date" id="rdt" value="${todayISO()}"></div>
+        <div class="field"><label for="rp">Пара</label><select class="input" id="rp">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option ${n === 5 ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+        <div class="field"><label for="rr">Аудитория</label><input class="input" id="rr" maxlength="30"></div>
+        <div class="field"><label for="re">Принимает</label><input class="input" id="re" maxlength="80" placeholder="Преподаватель или комиссия"></div>
+      </div>
+      <button class="btn">${icon('refresh')} Назначить и уведомить студента</button></form>
+  </div>`;
+  ctx.el.querySelector('#rt').onsubmit = async (e) => {
+    e.preventDefault();
+    const v = (id) => ctx.el.querySelector(id).value;
+    try { await api('/staff/retakes', { method: 'POST', body: { student_id: d.student.id, discipline: v('#rd'), date: v('#rdt'), pair: v('#rp'), room: v('#rr'), examiner: v('#re') } }); toast('Пересдача назначена, студент получил уведомление'); renderStudent(ctx); }
+    catch (err) { toast(err.message, 'bad'); }
+  };
 }

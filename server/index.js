@@ -31,7 +31,7 @@ function createApp(db) {
   // Защита от CSRF: изменяющие запросы принимаются только от нашего фронтенда
   // (собственный заголовок нельзя отправить с чужого сайта без CORS, а CORS мы не разрешаем)
   app.use('/api', (req, res, next) => {
-    if (req.method !== 'GET' && req.get('X-Orbita') !== '1') return res.status(403).json({ error: 'Запрос отклонён' });
+    if (req.method !== 'GET' && req.get('X-Orbita') !== '1') return res.status(403).json({ error: 'Запрос отклонен' });
     res.setHeader('Cache-Control', 'no-store');
     next();
   });

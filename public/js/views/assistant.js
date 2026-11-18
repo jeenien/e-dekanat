@@ -2,7 +2,7 @@
 import { api, esc, icon, sheet, todayISO } from '../lib.js';
 
 const history = [];
-const SUGGEST = ['Что у меня завтра?', 'Как дела с допуском к экзаменам?', 'Какие дедлайны горят?', 'Нужна справка для военкомата', 'Сохраню ли я стипендию?', 'Где находится деканат?'];
+const SUGGEST = ['Что у меня завтра?', 'Как дела с допуском к экзаменам?', 'Какие дедлайны горят?', 'Нужна справка для военкомата', 'Сколько у меня пропусков?', 'Сохраню ли я стипендию?', 'Где находится деканат?'];
 
 function msgHtml(m) {
   return `<div class="msg ${m.role === 'user' ? 'me' : 'bot'}">${esc(m.text)}${m.actions?.length ? `<div class="acts">${m.actions.map((a) => `<a class="btn sm ${m.role === 'user' ? 'ghost' : 'soft'}" href="${esc(a.href)}" data-close>${esc(a.label)}</a>`).join('')}</div>` : ''}</div>`;

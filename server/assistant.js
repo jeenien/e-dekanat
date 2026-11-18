@@ -1,20 +1,22 @@
-// «Спроси Орбиту» — помощник по учёбе и порядкам деканата.
+// «Спроси Орбиту» — помощник по учебе и порядкам деканата.
 // Если на сервере задан ANTHROPIC_API_KEY, отвечает Claude; иначе — встроенный
-// локальный режим на правилах. Ключ живёт только в переменных окружения сервера.
+// локальный режим на правилах. Ключ живет только в переменных окружения сервера.
 const A = require('./academic');
 const S = require('./services');
 const { TYPES } = require('./catalog');
 const { AI_ENABLED, ANTHROPIC_MODEL } = require('./config');
 
-// База знаний о порядках (вымышленного) вуза — то, о чём обычно спрашивают в деканате
+// База знаний о порядках (вымышленного) вуза — то, о чем обычно спрашивают в деканате
 const KNOWLEDGE = `
-- Деканат: корпус А, кабинет А-112. Приём: пн–пт 10:00–17:00, обед 13:00–14:00. Запись на приём онлайн — услуга «Запись на приём».
+- Деканат: корпус А, кабинет А-112. Прием: пн–пт 10:00–17:00, обед 13:00–14:00. Запись на прием онлайн — услуга «Запись на прием».
 - Справка об обучении: электронная с QR-кодом формируется сразу, бумажная — 2 рабочих дня, забирать в А-112.
-- Выписка из зачётки: на русском — сразу, на английском — 5 рабочих дней.
+- Выписка из зачетки: на русском — сразу, на английском — 5 рабочих дней.
 - Справка в военкомат — только бумажная, 3 рабочих дня.
-- БРС: 100 баллов за дисциплину. Экзамен: до 60 баллов в семестре + до 40 на экзамене, допуск от 35 баллов. Зачёт: «зачтено» от 55 баллов в семестре.
+- БРС: 100 баллов за дисциплину. Экзамен: до 60 баллов в семестре + до 40 на экзамене, допуск от 35 баллов. Зачет: «зачтено» от 55 баллов в семестре.
 - Шкала: 85+ — «отлично», 70–84 — «хорошо», 55–69 — «удовлетворительно».
-- Пересдача: подать заявление «Пересдача», деканат согласует дату с преподавателем за 3 рабочих дня. Не более двух пересдач, вторая — комиссии.
+- Пересдачи назначают деканат и кафедра сами, заявление не нужно: дата, время и аудитория появляются в расписании и на главной. Если обычные пересдачи использованы — можно подать заявление «Ректорская пересдача».
+- Пропуски: пара = 2 академических часа. Неуважительные пропуски: 30 ч (15 пар) — выговор, 60 ч — отчисление. Пропуски по справке не учитываются.
+- Проходы через турникеты (СКУД) видны в разделе «Кампус».
 - Академическая стипендия назначается по итогам сессии студентам бюджета без троек и долгов; повышенная — при сессии на «отлично» и активности.
 - Материальная помощь рассматривается стипендиальной комиссией раз в 2 недели.
 - Академический отпуск — до 2 лет, основания: медицинские, семейные, призыв.
@@ -25,28 +27,32 @@ const KNOWLEDGE = `
 function buildContext(db, userId, today) {
   const st = S.getStudent(db, userId);
   const g = S.gradesOverview(db, userId);
-  const todayS = S.daySchedule(db, st.group, today);
-  const tomorrow = S.daySchedule(db, st.group, A.isoDate(A.addDays(A.parseDate(today), 1)));
-  const week = S.rangeSchedule(db, st.group, today, 7);
+  const todayS = S.daySchedule(db, st.group, today, userId);
+  const tomorrow = S.daySchedule(db, st.group, A.isoDate(A.addDays(A.parseDate(today), 1)), userId);
+  const week = S.rangeSchedule(db, st.group, today, 7, userId);
+  const retakes = S.retakesFor(db, userId);
+  const abs = S.absencesFor(db, userId);
   const deadlines = S.deadlinesFor(db, userId, st.group).filter((d) => !d.done && new Date(d.due_at) > Date.now()).slice(0, 6);
   const requests = db.prepare('SELECT title, status, eta FROM requests WHERE student_id = ? ORDER BY created_at DESC LIMIT 6').all(userId);
-  return { st, g, todayS, tomorrow, week, deadlines, requests };
+  return { st, g, todayS, tomorrow, week, deadlines, requests, retakes, abs };
 }
 
 const fmtLesson = (l) => `${l.pair} пара ${l.start}–${l.end}: ${l.subject} (${l.kind.toLowerCase()}), ${l.room}, ${l.teacher}${l.change ? ` [изменение: ${l.change.type === 'cancel' ? 'ОТМЕНА' : l.change.type === 'room' ? 'новая аудитория, было ' + l.change.old_room : l.change.type === 'teacher' ? 'замена преподавателя' : l.change.type === 'extra' ? 'дополнительное занятие' : 'перенос'}]` : ''}`;
 const ruDay = (iso) => new Date(iso).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
 
-// Сводка для модели: БЕЗ ФИО, контактов, номера зачётки — только то, что нужно для ответа
+// Сводка для модели: БЕЗ ФИО, контактов, номера зачетки — только то, что нужно для ответа
 function contextText(c) {
   const { st, g } = c;
   return [
     `Студент: ${st.course} курс, группа ${st.group}, ${st.program}, ${st.funding.toLowerCase()}, текущий семестр ${g.semester}. Стипендия: ${st.stipend}.`,
-    `Сегодня (${ruDay(c.todayS.date)}, ${c.todayS.week}-я неделя, ${c.todayS.parity === 'odd' ? 'нечётная' : 'чётная'}): ${c.todayS.lessons.length ? c.todayS.lessons.map(fmtLesson).join('; ') : 'пар нет'}.`,
+    `Сегодня (${ruDay(c.todayS.date)}, ${c.todayS.week}-я неделя, ${c.todayS.parity === 'odd' ? 'нечетная' : 'четная'}): ${c.todayS.lessons.length ? c.todayS.lessons.map(fmtLesson).join('; ') : 'пар нет'}.`,
     `Неделя: ${c.week.slice(1).map((d) => `${ruDay(d.date)} — ${d.lessons.length ? d.lessons.map(fmtLesson).join('; ') : 'пар нет'}`).join(' | ')}.`,
     `Текущая успеваемость: ${g.current.map((x) => `${x.name} — ${x.earned}/${x.max_so_far} баллов (из ${x.sem_max} в семестре), ${x.control_label.toLowerCase()}, статус: ${x.label}`).join('; ')}.`,
-    `Средний балл за прошлые сессии: ${g.summary.gpa ?? 'сессий ещё не было'}. Долги: ${g.debts.length ? g.debts.map((d) => d.name).join(', ') : 'нет'}. Прогноз стипендии: ${g.summary.stipend.title} — ${g.summary.stipend.text}`,
-    `Сессия: ${g.session.name} ${g.session.start}…${g.session.end}. Экзамены/зачёты: ${g.session.exams.map((e) => `${e.name} ${e.date.replace('T', ' ')} ${e.room}`).join('; ')}.`,
+    `Средний балл за прошлые сессии: ${g.summary.gpa ?? 'сессий еще не было'}. Долги: ${g.debts.length ? g.debts.map((d) => d.name).join(', ') : 'нет'}. Прогноз стипендии: ${g.summary.stipend.title} — ${g.summary.stipend.text}`,
+    `Сессия: ${g.session.name} ${g.session.start}…${g.session.end}. Экзамены/зачеты: ${g.session.exams.map((e) => `${e.name} ${e.date.replace('T', ' ')} ${e.room}`).join('; ')}.`,
     `Дедлайны: ${c.deadlines.length ? c.deadlines.map((d) => `${d.title} (${d.discipline}) до ${d.due_at.replace('T', ' ').slice(0, 16)}`).join('; ') : 'нет'}.`,
+    `Пересдачи: ${c.retakes.length ? c.retakes.map((r) => `${r.discipline} ${r.date} ${r.start}, ${r.room}`).join('; ') : 'нет'}.`,
+    `Пропуски (неуважительные): ${c.abs.hours} ак. ч из 30 до выговора; по справке ${c.abs.excused_hours} ч.`,
     `Заявки: ${c.requests.length ? c.requests.map((r) => `${r.title} — ${r.status}`).join('; ') : 'нет'}.`,
   ].join('\n');
 }
@@ -73,12 +79,21 @@ function localAnswer(c, text) {
     answer = `Сейчас: ${c.st.stipend}. Прогноз на следующий семестр — «${c.g.summary.stipend.title}». ${c.g.summary.stipend.text}`;
     actions.push(ACTIONS.stipend_cert);
   } else if (has('долг', 'пересда', 'хвост')) {
-    answer = c.g.debts.length ? `У вас ${c.g.debts.length === 1 ? 'одна задолженность' : 'задолженности'}: ${c.g.debts.map((d) => `«${d.name}» (${d.semester} семестр)`).join(', ')}. Подайте заявление на пересдачу — деканат согласует дату с преподавателем за 3 рабочих дня. Пересдач может быть не больше двух, вторая — комиссии.` : 'Задолженностей нет 🎉 Если понадобится пересдача для повышения оценки, заявление тоже можно подать онлайн.';
-    actions.push(ACTIONS.retake);
-  } else if (has('допуск', 'балл', 'успева', 'оценк', 'экзамен', 'сесси', 'автомат', 'зачёт', 'зачет')) {
+    if (c.retakes.length) {
+      const r = c.retakes[0];
+      answer = `У вас назначена пересдача: «${r.discipline}» — ${new Date(r.date).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}, ${r.start}, аудитория ${r.room}, принимает ${r.examiner}. Заявление не нужно — пересдачу назначили деканат и кафедра.`;
+      actions.push({ label: 'Открыть в расписании', href: `#/schedule/${r.date}` });
+    } else if (c.g.debts.length) {
+      answer = `Есть задолженность: ${c.g.debts.map((d) => `«${d.name}»`).join(', ')}. Дату пересдачи назначат деканат и кафедра — она появится в расписании и на главной. Если обычные пересдачи уже использованы, можно подать заявление на ректорскую.`;
+      actions.push(ACTIONS.rector_retake);
+    } else answer = 'Задолженностей и назначенных пересдач нет 🎉';
+  } else if (has('пропус', 'прогул', 'выговор', 'отчисл')) {
+    answer = `Неуважительных пропусков: ${c.abs.hours} ак. ч (${c.abs.hours / 2} пар). До выговора — ${Math.max(0, 30 - c.abs.hours)} ч, это ${Math.max(0, (30 - c.abs.hours) / 2)} пар. Пропуски по справке (${c.abs.excused_hours} ч) не учитываются.`;
+    actions.push({ label: 'Открыть «Кампус»', href: '#/campus' });
+  } else if (has('допуск', 'балл', 'успева', 'оценк', 'экзамен', 'сесси', 'автомат', 'зачет', 'зачет')) {
     const risk = c.g.current.filter((x) => x.status !== 'ok');
     answer = `Коротко по семестру:\n${c.g.current.map((x) => `• ${x.name}: ${x.earned} из ${x.max_so_far} возможных, ${x.label.toLowerCase()}`).join('\n')}`;
-    answer += risk.length ? `\n\nОбратите внимание на: ${risk.map((x) => x.name).join(', ')}.` : '\n\nВсё в графике — так держать!';
+    answer += risk.length ? `\n\nОбратите внимание на: ${risk.map((x) => x.name).join(', ')}.` : '\n\nВсе в графике — так держать!';
     const ex = c.g.session.exams.find((e) => e.control_label === 'Экзамен');
     if (ex) answer += `\nПервый экзамен — ${ex.name}, ${new Date(ex.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}.`;
     actions.push({ label: 'Открыть успеваемость', href: '#/grades' });
@@ -88,31 +103,31 @@ function localAnswer(c, text) {
   } else if (has('военкомат')) {
     answer = 'Справка в военкомат оформляется по форме приложения № 2, только бумажная. Срок — 3 рабочих дня, забрать в А-112.';
     actions.push(ACTIONS.military);
-  } else if (has('выписк', 'зачётк', 'зачетк')) {
-    answer = 'Выписку из зачётной книжки можно получить онлайн: на русском — сразу, электронный документ с QR-кодом; на английском — за 5 рабочих дней.';
+  } else if (has('выписк', 'зачетк', 'зачетк')) {
+    answer = 'Выписку из зачетной книжки можно получить онлайн: на русском — сразу, электронный документ с QR-кодом; на английском — за 5 рабочих дней.';
     actions.push(ACTIONS.transcript);
   } else if (has('справк')) {
     answer = 'Справку об обучении можно получить прямо сейчас: электронная с QR-кодом формируется мгновенно и принимается там, где можно проверить подлинность онлайн. Бумажная с печатью — за 2 рабочих дня.';
     actions.push(ACTIONS.study_cert);
   } else if (has('академ', 'отпуск')) {
-    answer = 'Академический отпуск даётся до 2 лет по медицинским, семейным основаниям или в связи с призывом. Заявление подаётся онлайн, к нему нужны подтверждающие документы. Рассмотрение — до 10 рабочих дней.';
+    answer = 'Академический отпуск дается до 2 лет по медицинским, семейным основаниям или в связи с призывом. Заявление подается онлайн, к нему нужны подтверждающие документы. Рассмотрение — до 10 рабочих дней.';
     actions.push(ACTIONS.academic_leave);
   } else if (has('матпом', 'материальн', 'деньг')) {
     answer = 'Материальную помощь рассматривает стипендиальная комиссия раз в две недели. Опишите ситуацию в заявлении — подтверждающие документы можно приложить позже в переписке.';
     actions.push(ACTIONS.financial_aid);
-  } else if (has('болел', 'болезн', 'пропуск', 'пропустил')) {
+  } else if (has('болел', 'болезн', 'справка из поликлин')) {
     answer = 'Если вы болели, принесите справку из поликлиники в деканат (А-112) в течение 3 дней после выздоровления. Пропущенные контрольные точки согласуйте с преподавателем.';
     actions.push(ACTIONS.appointment);
   } else if (has('график', 'работа', 'свободн')) {
     answer = 'Индивидуальный график (свободное посещение) дают работающим по специальности, спортсменам и по семейным обстоятельствам. Понадобится справка, подтверждающая основание.';
     actions.push(ACTIONS.individual_plan);
-  } else if (has('деканат', 'приём', 'прием', 'кабинет', 'часы работы', 'где находится')) {
-    answer = 'Деканат: корпус А, кабинет А-112. Приём пн–пт 10:00–17:00, обед 13:00–14:00. Запишитесь онлайн — и не придётся стоять в очереди.';
+  } else if (has('деканат', 'прием', 'прием', 'кабинет', 'часы работы', 'где находится')) {
+    answer = 'Деканат: корпус А, кабинет А-112. Прием пн–пт 10:00–17:00, обед 13:00–14:00. Запишитесь онлайн — и не придется стоять в очереди.';
     actions.push(ACTIONS.appointment);
   } else if (has('привет', 'здравств', 'добрый')) {
     answer = `Привет, ${c.st.first_name}! Я помогу разобраться с расписанием, баллами, справками и заявлениями. Спросите, например: «Что у меня завтра?» или «Как дела с допуском?»`;
   } else {
-    answer = 'Пока не знаю точного ответа на этот вопрос. Задайте его сотрудникам деканата — ответ придёт в переписку по обращению.';
+    answer = 'Пока не знаю точного ответа на этот вопрос. Задайте его сотрудникам деканата — ответ придет в переписку по обращению.';
     actions.push(ACTIONS.question);
   }
   return { answer, actions: actions.filter(Boolean).slice(0, 2), mode: 'local' };
