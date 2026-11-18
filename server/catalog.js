@@ -92,8 +92,8 @@ const TYPES = {
   },
   question: {
     title: 'Вопрос в деканат', group: 'Связь с деканатом', icon: 'message',
-    description: 'Напишите — ответ придет сюда же, в переписку по обращению.',
-    sla_days: 2,
+    description: 'Напишите — ответ придет сюда же, в переписку по обращению, в течение рабочего дня.',
+    sla_days: 1,
     fields: [
       { name: 'topic', label: 'Тема', type: 'text', maxLength: 120, required: true },
       { name: 'text', label: 'Вопрос', type: 'textarea', maxLength: 2000, required: true },

@@ -22,17 +22,13 @@ function disciplineCard(c) {
 }
 
 function currentTab(g) {
-  const risks = g.current.filter((c) => c.status !== 'ok');
   return `<div class="grid c2" style="align-items:start">
-    <div class="stack">
-      ${g.summary.stipend ? `<div class="stipend ${g.summary.stipend.level}"><div class="ico">${icon('wallet')}</div><div><b>Прогноз стипендии: ${esc(g.summary.stipend.title)}</b><p class="small muted" style="margin-top:2px">${esc(g.summary.stipend.text)}</p></div></div>` : ''}
-      ${risks.length ? `<div class="card" style="border-color:var(--warn)"><b>${icon('target')} Фокус недели</b><p class="small muted" style="margin-top:4px">Больше всего внимания требуют: ${risks.map((r) => `<b>${esc(r.name)}</b> (${esc(r.label.toLowerCase())})`).join(', ')}.</p></div>` : `<div class="card row"><div class="ring" style="--p:100;--c:var(--ok)"><b>${icon('check')}</b></div><div><b>Все дисциплины в графике</b><p class="small muted">Так держать — допуски и автоматы по прогнозу ваши.</p></div></div>`}
-    </div>
     <div class="card"><div class="card-h"><h2>Шкала, 100 баллов</h2></div>
       <div class="scale" aria-label="Шкала оценок"><div class="s2">2</div><div class="s3">3</div><div class="s4">4</div><div class="s5">5</div></div>
       <div class="scale-n"><span>0</span><span>55</span><span>70</span><span>85</span></div>
       <div class="legend" style="margin-top:14px"><span><i class="sw"></i>набрано</span><span><i class="sw proj"></i>прогноз по темпу</span><span><i class="sw tick"></i>порог допуска / зачета</span></div>
-      <div class="row wrap xs faint" style="margin-top:10px;gap:6px"><span class="chip">экзамен: 60 + 40</span><span class="chip">допуск от 35</span><span class="chip">зачет от 55</span></div></div>
+    </div>
+    <div class="card"><div class="card-h"><h2>Правила</h2></div><div class="row wrap" style="gap:6px"><span class="chip">экзамен: 60 + 40</span><span class="chip">допуск от 35</span><span class="chip">зачет от 55</span></div></div>
   </div>
   <div class="section-title">Семестр ${g.semester} · ${g.current.length} ${plural(g.current.length, 'дисциплина', 'дисциплины', 'дисциплин')}</div>
   <div class="grid c2" style="align-items:start">${g.current.map(disciplineCard).join('')}</div>`;
