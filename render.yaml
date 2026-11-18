@@ -1,0 +1,18 @@
+# Развёртывание на Render.com: New → Blueprint → выбрать репозиторий.
+services:
+  - type: web
+    name: orbita-dekanat
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22.13.0
+      - key: DATA_KEY
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
