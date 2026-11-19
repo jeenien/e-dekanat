@@ -58,7 +58,7 @@ export async function render(ctx) {
             <div><div class="small muted">Без уважительной причины</div><div class="big-num" style="${absenceText(a).over ? 'color:var(--bad)' : ''}">${a.hours} <small>ак. ч. из ${absenceText(a).limit} ак. ч.</small></div><div style="margin-top:6px">${absenceChip(a)}</div></div>
             ${a.excused_hours ? `<span class="chip info">${icon('docs', 'sm')} ${a.excused_hours} ак. ч. по справке</span>` : ''}</div>
           ${absenceMeter(a)}
-          <div class="legend"><span><i class="sw" style="background:var(--fill)"></i>1 пара = 2 ак. ч.</span><span><i class="sw tick"></i>порог</span><span><i class="sw" style="background:var(--info-soft);border:1px solid var(--info)"></i>по справке — не считается</span></div>
+          <div class="legend"><span><i class="sw" style="background:var(--fill)"></i>1 пара = 2 ак. ч.</span><span><i class="sw" style="background:var(--info-soft);border:1px solid var(--info)"></i>по справке — не считается</span></div>
         </section>
         ${d.retakes.length ? `<section class="card"><div class="card-h"><h2>Пересдачи</h2></div>${d.retakes.map((r) => `<a class="li" href="#/schedule/${esc(r.date)}" style="padding:8px 0;border:0"><div class="ico warn">${icon('refresh')}</div><div class="grow"><div class="t">${esc(r.discipline)}</div><div class="s">${fmt.dayTitle(parseISO(r.date))}, ${r.start} · ${esc(r.room)}</div></div>${icon('chevronRight')}</a>`).join('')}</section>` : ''}
       </div>

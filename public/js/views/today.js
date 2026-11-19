@@ -68,7 +68,7 @@ export function absenceMeter(a) {
   return `<div class="meter" role="img" aria-label="Пропущено ${a.hours} из ${limit} академических часов">
     <i class="${cls}" style="width:${pct(a.hours)}%"></i>
     ${over ? `<span class="th" style="left:${pct(a.limits.warning)}%"><b>${a.limits.warning}</b><small>выговор</small></span>` : ''}
-    <span class="th end" style="left:calc(100% - 2px)"><b>${limit} ак. ч.</b></span></div>`;
+</div>`;
 }
 function absenceCard(a) {
   const t = absenceText(a);

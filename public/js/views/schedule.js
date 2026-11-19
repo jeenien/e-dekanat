@@ -75,7 +75,7 @@ export async function render(ctx) {
       const dd = parseISO(d.date);
       return `<div class="col ${d.date === todayISO() ? 'today' : ''}"><h3>${fmt.wd(dd).toUpperCase()} <small>${fmt.dmShort(dd)}</small></h3>
         ${d.lessons.length ? d.lessons.map((l) => `<div class="wl ${kindClass(l.kind)} ${l.change?.type === 'cancel' ? 'cancel' : l.change?.type === 'retake' ? '' : l.change ? 'changed' : ''}" title="${esc(l.change ? changeLabel(l.change) : '')}">
-          <div class="faint">${l.pair} · ${l.start}–${l.end}</div><b>${esc(l.subject)}</b><div class="faint">${esc(l.kind)} · ${esc(l.room)}</div>${l.teacher ? `<div class="faint">${esc(l.teacher)}</div>` : ''}
+          <div class="faint">${l.pair ? `${l.pair} · ` : ''}${l.start}–${l.end}</div><b>${esc(l.subject)}</b><div class="faint">${esc(l.kind)} · ${esc(l.room)}</div>${l.teacher ? `<div class="faint">${esc(l.teacher)}</div>` : ''}
           ${l.change ? `<div class="xs" style="color:${['cancel', 'retake'].includes(l.change.type) ? 'var(--bad)' : 'var(--warn)'};font-weight:800;margin-top:2px">${esc(changeLabel(l.change))}</div>` : ''}</div>`).join('') : '<div class="faint small" style="padding:8px 2px">Пар нет</div>'}</div>`;
     }).join('')}</div>
     <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>семинар</span><span><i class="sw oth"></i>консультация</span><span><i class="sw" style="background:var(--warn)"></i>изменение</span><span><i class="sw" style="background:var(--bad)"></i>пересдача</span></div>

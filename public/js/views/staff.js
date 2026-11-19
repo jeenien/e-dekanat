@@ -91,37 +91,62 @@ export async function renderAnnounce(ctx) {
 }
 
 export async function renderSchedule(ctx) {
-  ctx.setTitle('Изменения расписания');
+  ctx.setTitle('Расписание');
   const groups = await api('/staff/groups');
   if (!ctx.isCurrent()) return;
   ctx.el.innerHTML = `<div class="page grid c2" style="align-items:start"><form class="card" id="sc" novalidate>
+    <div id="err"></div>
     <div class="grid c2" style="gap:0 12px"><div class="field"><label for="g">Группа</label><select class="input" id="g">${groups.map((g) => `<option>${esc(g.group)}</option>`).join('')}</select></div>
     <div class="field"><label for="d">Дата</label><input class="input" type="date" id="d" value="${todayISO()}"></div></div>
-    <div id="pairs" class="field"></div>
-    <div class="field"><span class="lbl">Что меняем</span><div class="seg"><button type="button" class="on" data-t="room">Аудиторию</button><button type="button" data-t="cancel">Отменить пару</button></div></div>
-    <div class="field" id="roomf"><label for="rm">Новая аудитория</label><input class="input" id="rm" maxlength="30" placeholder="Например: Б-201"></div>
-    <div class="field"><label for="nt">Причина / комментарий</label><input class="input" id="nt" maxlength="200"></div>
+    <div class="field"><span class="lbl">Что делаем</span><div class="seg"><button type="button" class="on" data-t="extra">Поставить пару</button><button type="button" data-t="room">Сменить аудиторию</button><button type="button" data-t="cancel">Отменить</button></div></div>
+    <div id="pairs" class="field" hidden></div>
+    <div id="extraf">
+      <div class="grid c2" style="gap:0 12px"><div class="field"><label for="st">Начало</label><input class="input" type="time" id="st" value="16:00" step="300"></div>
+      <div class="field"><label for="en">Окончание</label><input class="input" type="time" id="en" value="17:20" step="300"></div></div>
+      <div class="field"><label for="sj">Дисциплина</label><input class="input" id="sj" maxlength="150" list="subjects"><datalist id="subjects"></datalist></div>
+      <div class="grid c2" style="gap:0 12px"><div class="field"><label for="kd">Вид</label><select class="input" id="kd"><option>Семинар</option><option>Лекция</option><option>Консультация</option></select></div>
+      <div class="field"><label for="xr">Аудитория</label><input class="input" id="xr" maxlength="40" placeholder="Например: 4138 (Корпус МО)"></div></div>
+    </div>
+    <div class="field" id="roomf" hidden><label for="rm">Новая аудитория</label><input class="input" id="rm" maxlength="30" placeholder="Например: 4138 (Корпус МО)"></div>
+    <div class="field"><label for="nt">Комментарий для студентов</label><input class="input" id="nt" maxlength="200"></div>
     <button class="btn">Сохранить и уведомить группу</button></form>
-    <div class="card small muted"><b style="color:var(--text)">Студенты увидят изменение сразу</b><p style="margin-top:6px">Пара подсветится в расписании, на главном экране появится предупреждение, а в ленту придет уведомление.</p></div></div>`;
-  let type = 'room';
+    <section class="card"><div class="card-h"><h2>Пары группы в этот день</h2></div><div id="dayview"></div>
+      <p class="xs faint" style="margin-top:10px">Новую пару нельзя поставить на время, занятое другой парой: система подскажет, с чем она пересекается.</p></section></div>`;
+  let type = 'extra';
   const form = ctx.el.querySelector('#sc');
-  const loadPairs = async () => {
+  const v = (id) => form.querySelector(id).value;
+  const showErr = (msg) => { form.querySelector('#err').innerHTML = msg ? `<div class="form-error" role="alert">${icon('alert', 'sm')} ${esc(msg)}</div>` : ''; };
+  const loadDay = async () => {
     const box = ctx.el.querySelector('#pairs');
+    const view = ctx.el.querySelector('#dayview');
     try {
-      const day = await api(`/staff/schedule?group=${encodeURIComponent(form.querySelector('#g').value)}&date=${form.querySelector('#d').value}`);
-      box.innerHTML = `<label for="p">Пара</label>${day.lessons.length ? `<select class="input" id="p">${day.lessons.map((l) => `<option value="${l.pair}">${l.pair} пара · ${l.start} · ${esc(l.subject)} (${esc(l.room)})${l.change ? ' — уже изменена' : ''}</option>`).join('')}</select>` : '<div class="small muted">В этот день у группы нет пар</div>'}`;
+      const day = await api(`/staff/schedule?group=${encodeURIComponent(v('#g'))}&date=${v('#d')}`);
+      box.innerHTML = `<label for="p">Пара</label>${day.lessons.length ? `<select class="input" id="p">${day.lessons.filter((l) => l.pair).map((l) => `<option value="${l.pair}">${l.pair} пара · ${l.start} · ${esc(l.subject)}${l.change ? ' — уже изменена' : ''}</option>`).join('')}</select>` : '<div class="small muted">В этот день у группы нет пар</div>'}`;
+      view.innerHTML = day.lessons.length ? day.lessons.map((l) => `<div class="row" style="padding:8px 0;border-top:1px solid var(--line)"><b style="min-width:110px">${l.start}–${l.end}</b><div class="grow"><div>${esc(l.subject)}</div><div class="xs faint">${esc(l.kind)} · ${esc(l.room)}${l.change?.type === 'cancel' ? ' · отменена' : l.change?.type === 'extra' ? ' · добавлена деканатом' : ''}</div></div></div>`).join('')
+        : empty('calendar', 'Пар нет', 'Время свободно.');
+      const subj = [...new Set(day.lessons.map((l) => l.subject))];
+      form.querySelector('#subjects').innerHTML = subj.map((x) => `<option value="${esc(x)}">`).join('');
     } catch (e) { box.innerHTML = `<div class="small" style="color:var(--bad)">${esc(e.message)}</div>`; }
   };
-  form.querySelector('#g').onchange = loadPairs; form.querySelector('#d').onchange = loadPairs;
-  form.querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { type = b.dataset.t; form.querySelectorAll('[data-t]').forEach((x) => x.classList.toggle('on', x === b)); form.querySelector('#roomf').hidden = type !== 'room'; });
+  const applyType = () => {
+    form.querySelectorAll('[data-t]').forEach((x) => x.classList.toggle('on', x.dataset.t === type));
+    form.querySelector('#extraf').hidden = type !== 'extra';
+    form.querySelector('#pairs').hidden = type === 'extra';
+    form.querySelector('#roomf').hidden = type !== 'room';
+    showErr('');
+  };
+  form.querySelector('#g').onchange = loadDay; form.querySelector('#d').onchange = loadDay;
+  form.querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { type = b.dataset.t; applyType(); });
   form.onsubmit = async (e) => {
     e.preventDefault();
-    try {
-      await api('/staff/schedule-changes', { method: 'POST', body: { group: form.querySelector('#g').value, date: form.querySelector('#d').value, pair: form.querySelector('#p')?.value, type, new_room: form.querySelector('#rm').value, note: form.querySelector('#nt').value } });
-      toast('Сохранено, группа уведомлена'); loadPairs();
-    } catch (err) { toast(err.message, 'bad'); }
+    showErr('');
+    const body = type === 'extra'
+      ? { type, group: v('#g'), date: v('#d'), start: v('#st'), end: v('#en'), subject: v('#sj'), kind: v('#kd'), room: v('#xr'), note: v('#nt') }
+      : { type, group: v('#g'), date: v('#d'), pair: form.querySelector('#p')?.value, new_room: v('#rm'), note: v('#nt') };
+    try { await api('/staff/schedule-changes', { method: 'POST', body }); toast('Сохранено, группа уведомлена'); loadDay(); }
+    catch (err) { showErr(err.message); form.querySelector('#err').scrollIntoView({ block: 'nearest' }); }
   };
-  loadPairs();
+  applyType(); loadDay();
 }
 
 // ---------- Посещаемость студентов (СКУД и пропуски) ----------

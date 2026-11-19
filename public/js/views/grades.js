@@ -9,11 +9,11 @@ function disciplineCard(c) {
   return `<article class="card disc">
     <div class="disc-h"><div class="grow"><h3>${esc(c.name)}</h3><div class="small muted">${esc(c.control_label)}${c.teacher ? ` · ${esc(c.teacher)}` : ''} · ${c.credits} з.е.</div></div>
       <div class="score">${c.earned}<small> / 100</small></div></div>
-    <div class="progress ${c.status}" role="img" aria-label="Рейтинг ${c.earned} из 100, прогноз ${c.projected}, порог ${c.threshold}">
-      <i class="proj" style="width:${Math.min(100, c.projected)}%"></i><i style="width:${Math.min(100, c.earned)}%;position:relative"></i>
+    <div class="progress ${c.status}" role="img" aria-label="Рейтинг ${c.earned} из 100, порог ${c.threshold}">
+      <i style="width:${Math.min(100, c.earned)}%;position:relative"></i>
       <span class="mark" style="left:${c.threshold}%" title="${c.control === 'exam' ? 'Допуск' : 'Автомат'}: ${c.threshold}"></span></div>
     <div class="row between wrap"><span class="chip ${cls}">${icon(c.status === 'ok' ? 'checkCircle' : 'alert', 'sm')} ${esc(c.label)}</span>
-      <span class="xs faint">прогноз ≈ ${c.projected} · группа ${c.group_avg ?? '—'}</span></div>
+      <span class="xs faint">ср. балл группы ${c.group_avg ?? '—'}</span></div>
     <details class="more"><summary>${icon('chevronRight', 'sm')} Из чего складывается${c.exam_targets ? ' и цели на экзамен' : ''}</summary>
       <div class="items" style="margin-top:8px">${c.items.map((i) => `<div class="it ${i.score == null ? 'future' : ''}"><span>${esc(i.title)} <span class="faint xs">${wt(i.weight)}</span></span><span>${i.score == null ? `до ${fmt.dmShort(parseISO(i.date))}` : `<b>${i.score}</b>${i.unit || ' / 100'}`}</span></div>`).join('')}</div>
       ${c.exam_targets ? `<p class="small muted" style="margin:12px 0 6px">Нужно на экзамене (из 100):</p>
@@ -27,10 +27,11 @@ function currentTab(g) {
       <div class="scale" aria-label="Шкала оценок: 0–59 F, 60–66 E, 67–74 D, 75–81 C, 82–89 B, 90–100 A"><div class="s2">F</div><div class="s3">E</div><div class="s3">D</div><div class="s4">C</div><div class="s4">B</div><div class="s5">A</div></div>
       <div class="scale-n"><span>0</span><span>60</span><span>67</span><span>75</span><span>82</span><span>90</span></div>
       <div class="scale marks"><div class="s2">2</div><div class="s3" style="grid-column:span 2">3</div><div class="s4" style="grid-column:span 2">4</div><div class="s5">5</div></div>
-      <div class="legend" style="margin-top:14px"><span><i class="sw"></i>набрано</span><span><i class="sw proj"></i>прогноз по темпу</span><span><i class="sw tick"></i>автомат / допуск</span></div>
+      <div class="legend" style="margin-top:14px"><span><i class="sw"></i>рейтинг</span><span><i class="sw tick"></i>автомат / допуск</span></div>
     </div>
     <div class="card"><div class="card-h"><h2>Как считается рейтинг</h2></div><div class="row wrap" style="gap:6px"><span class="chip">срезы ×1</span><span class="chip">посещаемость ×0,5</span><span class="chip">работа на парах ×0,3</span></div>
-      <div class="row wrap" style="gap:6px;margin-top:8px"><span class="chip ok">автомат от 70</span><span class="chip">допуск к экзамену от 50</span><span class="chip">экзамен: 60% рейтинг + 40% ответ</span></div></div>
+      <div class="rule-row"><span class="lbl">Зачет</span><span class="chip ok">автомат от 70</span><span class="chip">ниже 70 — выход на зачет</span></div>
+      <div class="rule-row"><span class="lbl">Экзамен</span><span class="chip">допуск от 50</span><span class="chip">итог: 60% рейтинг + 40% ответ</span></div></div>
   </div>
   <div class="section-title">Семестр ${g.semester} · ${g.current.length} ${plural(g.current.length, 'дисциплина', 'дисциплины', 'дисциплин')}</div>
   <div class="grid c2" style="align-items:start">${g.current.map(disciplineCard).join('')}</div>`;

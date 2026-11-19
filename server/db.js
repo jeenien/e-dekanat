@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS schedule_changes (
   group_name TEXT NOT NULL, date TEXT NOT NULL, pair INTEGER NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('cancel','room','teacher','move','extra')),
   subject TEXT, kind TEXT, new_room TEXT, new_teacher TEXT, new_date TEXT, new_pair INTEGER,
-  note TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  note TEXT, start_time TEXT, end_time TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS disciplines (
   id INTEGER PRIMARY KEY,
@@ -138,6 +138,9 @@ function open(file = DB_FILE) {
   const db = new DatabaseSync(file);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
   db.exec(SCHEMA);
+  // Миграция: время для пар, поставленных деканатом вне сетки
+  const cols = db.prepare('PRAGMA table_info(schedule_changes)').all().map((c) => c.name);
+  if (!cols.includes('start_time')) db.exec('ALTER TABLE schedule_changes ADD COLUMN start_time TEXT; ALTER TABLE schedule_changes ADD COLUMN end_time TEXT;');
   return db;
 }
 
