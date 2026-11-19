@@ -99,7 +99,7 @@ function createLite(db, auth) {
       <h2>Сегодня</h2><div class="box">${lessonsHtml(t)}</div>
       <h2>Завтра</h2><div class="box">${lessonsHtml(tm)}</div>
       <h2>Дедлайны</h2><div class="box">${dls.length ? `<ul>${dls.map((d) => `<li><b>${esc(d.title)}</b> — ${esc(d.discipline)}, до ${esc(dt(d.due_at))}</li>`).join('')}</ul>` : '<p class="muted">Открытых дедлайнов нет</p>'}</div>
-      <h2>Пропуски</h2><div class="box"><b>${abs.hours} ак. ч</b> из ${abs.limits.warning} до выговора (${abs.limits.expulsion} ч — отчисление)${abs.excused_hours ? `<div class="muted">+ ${abs.excused_hours} ч по справке не учитываются</div>` : ''}</div>
+      <h2>Пропуски</h2><div class="box">${abs.hours >= abs.limits.warning ? `<b class="bad">${abs.hours} ак. ч из ${abs.limits.expulsion} ак. ч (риск отчисления)</b>` : `<b>${abs.hours} ак. ч из ${abs.limits.warning} ак. ч</b>`}${abs.excused_hours ? `<div class="muted">+ ${abs.excused_hours} ч по справке не учитываются</div>` : ''}</div>
       <h2>Заявки</h2><div class="box">${reqs.length ? `<ul>${reqs.map((x) => `<li><a href="/lite/requests/${esc(x.public_id)}">${esc(x.title)}</a> — ${esc(STATUS[x.status])}</li>`).join('')}</ul>` : '<p class="muted">Активных заявок нет</p>'}</div>
       <p><a href="/lite/news">Лента</a>${unread ? ` — непрочитанных: ${unread}` : ''}</p>`));
   });
@@ -121,7 +121,7 @@ function createLite(db, auth) {
     const g = S.gradesOverview(db, req.user.id);
     const cls = { ok: 'ok', watch: 'warn', risk: 'bad' };
     res.type('html').send(page(req, 'Учеба', `
-      <h2>Семестр ${g.semester}</h2><div class="box"><table><tr><th>Дисциплина</th><th>Баллы</th></tr>${g.current.map((c) => `<tr><td>${esc(c.name)}<div class="muted">${esc(c.control_label)}</div><div class="${cls[c.status]}">${esc(c.label)}</div></td><td style="white-space:nowrap">${c.earned} / ${c.sem_max}</td></tr>`).join('')}</table></div>
+      <h2>Семестр ${g.semester}</h2><div class="box"><table><tr><th>Дисциплина</th><th>Рейтинг</th></tr>${g.current.map((c) => `<tr><td>${esc(c.name)}<div class="muted">${esc(c.control_label)}</div><div class="${cls[c.status]}">${esc(c.label)}</div></td><td style="white-space:nowrap">${c.earned} / 100</td></tr>`).join('')}</table></div>
       <h2>${esc(g.session.name)}</h2><div class="box">${g.session.exams.length ? `<ul>${g.session.exams.map((e) => `<li>${esc(day(e.date))}, ${e.date.slice(11, 16)} — <b>${esc(e.name)}</b> (${esc(e.control_label.toLowerCase())}), ${esc(e.room)}</li>`).join('')}</ul>` : '<p class="muted">Расписание сессии еще не опубликовано</p>'}</div>
       <h2>Зачетка</h2><div class="box">${Object.keys(g.semesters).length ? `<p>Средний балл: <b>${g.summary.gpa ?? '—'}</b></p><table>${Object.entries(g.semesters).map(([sem, list]) => `<tr><th colspan="2">${sem} семестр</th></tr>${list.map((x) => `<tr><td>${esc(x.name)}</td><td>${esc(x.mark)}${x.points ? ` · ${x.points} · ${x.ects}` : ''}</td></tr>`).join('')}`).join('')}</table>` : '<p class="muted">Оценки появятся после первой сессии</p>'}</div>
       <p class="muted">Шкала: 90–100 «отлично» (A), 82–89 «хорошо» (B), 75–81 «хорошо» (C), 67–74 «удовлетворительно» (D), 60–66 «удовлетворительно» (E), меньше 60 — F.</p>`));
@@ -145,9 +145,9 @@ function createLite(db, auth) {
     const a = S.absencesFor(db, req.user.id);
     const c = S.campusFor(db, req.user.id, 14);
     res.type('html').send(page(req, 'Посещаемость', `
-      <h2>Пропуски</h2><div class="box"><b>${a.hours} ак. ч</b> (${a.pairs} пар). Лимит: ${a.limits.warning} ч — выговор, ${a.limits.expulsion} ч — отчисление.${a.excused_hours ? `<div class="muted">По справке: ${a.excused_hours} ч (не учитываются)</div>` : ''}
+      <h2>Пропуски</h2><div class="box">${a.hours >= a.limits.warning ? `<b class="bad">${a.hours} ак. ч из ${a.limits.expulsion} ак. ч (риск отчисления)</b>` : `<b>${a.hours} ак. ч из ${a.limits.warning} ак. ч</b>`}${a.excused_hours ? `<div class="muted">По справке: ${a.excused_hours} ч (не учитываются)</div>` : ''}
         ${a.list.length ? `<ul>${a.list.map((x) => `<li>${esc(day(x.date))}, ${x.pair} пара — ${esc(x.subject)}${x.excused ? ' <span class="muted">(по справке)</span>' : ''}</li>`).join('')}</ul>` : ''}</div>
-      <h2>Входы и выходы</h2><div class="box"><p>За неделю: <b>${hmin(c.week_minutes)}</b></p><table>${c.days.filter((d) => d.events.length).map((d) => `<tr><td>${esc(day(d.date))}</td><td>${d.first_in}–${d.inside ? 'сейчас' : d.last_out || '…'}</td><td>${hmin(d.minutes)}</td></tr>`).join('') || '<tr><td class="muted">Проходов нет</td></tr>'}</table></div>`));
+      <h2>Входы и выходы</h2><div class="box"><p>За неделю: <b>${hmin(c.week_minutes)}</b></p><table>${c.days.filter((d) => d.events.length).map((d) => `<tr><td>${esc(day(d.date))}</td><td>вход в ${d.first_in}${d.inside ? '' : d.last_out ? `, выход в ${d.last_out}` : ''}</td><td>${hmin(d.minutes)}</td></tr>`).join('') || '<tr><td class="muted">Проходов нет</td></tr>'}</table></div>`));
   });
 
   r.get('/news', (req, res) => {

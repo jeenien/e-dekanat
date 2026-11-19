@@ -51,9 +51,9 @@ const AUTH_BG = '<div class="auth-bg" aria-hidden="true"><i class="w1"></i><i cl
 
 // ---------- Вход ----------
 const DEMO = [
-  { login: 'anna', password: 'Orbita-Anna-2026', name: 'Анна Ветрова', note: 'ИТ, 2 курс, отличница' },
-  { login: 'timur', password: 'Orbita-Timur-2026', name: 'Тимур Северцев', note: 'Экономика, 3 курс, долг' },
-  { login: 'nika', password: 'Orbita-Nika-2026', name: 'Ника Полярная', note: 'Лингвистика, 1 курс' },
+  { login: 'anna', password: 'Orbita-Anna-2026', name: 'Анна Ветрова', note: 'ФУП, политология, 2 курс' },
+  { login: 'timur', password: 'Orbita-Timur-2026', name: 'Тимур Северцев', note: 'МЖ, реклама и СО, 2 курс' },
+  { login: 'nika', password: 'Orbita-Nika-2026', name: 'Ника Полярная', note: 'МО, регионоведение, 1 курс' },
   { login: 'dekanat', password: 'Orbita-Staff-2026', name: 'Ольга Ладогина', note: 'Сотрудник деканата' },
 ];
 function renderLogin(message = '') {

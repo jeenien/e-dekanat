@@ -283,7 +283,7 @@ function createApi(db, auth) {
       const a = S.absencesFor(db, r.id);
       const c = S.campusFor(db, r.id, 7);
       return { id: r.id, name: `${r.last_name} ${r.first_name} ${r.middle_name || ''}`.trim(), group: r.group_name, course: r.course, faculty: r.faculty,
-        absence_hours: a.hours, absence_level: a.level, week_minutes: c.week_minutes, week_days: c.week_days, inside: c.inside, today_in: c.days[0].first_in };
+        absence_hours: a.hours, absence_level: a.level, week_minutes: c.week_minutes, week_days: c.week_days, inside: c.inside, today_in: c.days[0].first_in, today_out: c.days[0].last_out };
     }));
   });
   api.get('/staff/students/:id/attendance', staff, (req, res) => {

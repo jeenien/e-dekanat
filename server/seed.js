@@ -174,16 +174,15 @@ function seed(db) {
         const consult = isExam ? A.addDays(examDay, -1) : null;
         const did = insDisc.run(s.group, sem, name, control, isExam ? 5 : 3, isExam ? 180 : 108, '',
           `${A.isoDate(examDay)}T${isExam ? '09:00' : '14:30'}`, MAIN_ROOM(s.group, name),
-          consult ? `${A.isoDate(consult)}T16:00` : null, Math.round((isExam ? 40 : 68) + rand() * 12)).lastInsertRowid;
+          consult ? `${A.isoDate(consult)}T16:00` : null, Math.round(64 + rand() * 16)).lastInsertRowid;
         // Контрольные точки: часть прошла, часть впереди
-        const items = isExam
-          ? [['Посещаемость', 10, -50], ['Контрольная точка 1', 15, -35], ['Лабораторные / практика', 15, -12], ['Контрольная точка 2', 20, 18]]
-          : [['Посещаемость', 15, -50], ['Практические задания', 30, -30], ['Контрольная точка 1', 25, -8], ['Итоговый проект', 30, 24]];
+        // Срез 1 уже написан, срезы 2 и 3 впереди; работа на парах оценивается по ходу семестра
+        const items = [['Срез 1', -14], ['Срез 2', 12], ['Срез 3', 30], ['Работа на парах', -1]];
         const sk = s.special[name] ?? Math.min(1, s.base + (rand() - 0.5) * 0.12);
-        items.forEach(([title, max, off]) => {
+        items.forEach(([title, off]) => {
           const passed = off < 0;
-          const score = passed ? Math.max(0, Math.min(max, Math.round(max * (sk - 0.08 + rand() * 0.14)))) : null;
-          insItem.run(uid, did, title, score, max, d(off));
+          const score = passed ? Math.max(0, Math.min(100, Math.round(100 * (sk - 0.08 + rand() * 0.14)))) : null;
+          insItem.run(uid, did, title, score, 100, d(off));
         });
       });
     }
