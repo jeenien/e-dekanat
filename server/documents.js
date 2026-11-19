@@ -50,7 +50,7 @@ async function renderDocument(db, req, request) {
   let body;
   if (request.type === 'transcript') {
     const g = S.gradesOverview(db, request.student_id);
-    const rows = Object.entries(g.semesters).flatMap(([sem, list]) => list.map((x) => `<tr><td>${esc(sem)}</td><td>${esc(x.name)}</td><td>${esc(x.control_label)}</td><td>${x.credits}</td><td>${esc(x.mark)}</td></tr>`)).join('');
+    const rows = Object.entries(g.semesters).flatMap(([sem, list]) => list.map((x) => `<tr><td>${esc(sem)}</td><td>${esc(x.name)}</td><td>${esc(x.control_label)}</td><td>${x.credits}</td><td>${esc(x.mark)}${x.points ? ` (${x.points}, ${x.ects})` : ''}</td></tr>`)).join('');
     body = `<h1>ВЫПИСКА ИЗ ЗАЧЕТНОЙ КНИЖКИ</h1><div class="num">№ ${esc(request.doc_code)} от ${ruDate(request.created_at)}</div>
       <p>Студент: <b>${esc(fio)}</b>, ${st.course} курс, группа ${esc(st.group)}, направление ${esc(st.program_code)} «${esc(st.program)}», зачетная книжка № ${esc(st.record_book)}.</p>
       ${rows ? `<table><tr><th>Сем.</th><th>Дисциплина</th><th>Форма</th><th>З.е.</th><th>Оценка</th></tr>${rows}</table>` : '<p><i>Сессии еще не сдавались — оценок нет.</i></p>'}

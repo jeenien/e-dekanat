@@ -42,7 +42,7 @@ export async function renderList(ctx) {
 }
 
 const svcTile = (t) => `<a class="svc" href="#/requests/new/${t.id}"><span class="ico">${icon(t.icon)}</span><b>${esc(t.title)}</b>
-  ${t.instant || t.instant_if ? `<span class="fast">${icon('sparkles', 'sm')} ${t.instant ? 'сразу' : 'можно сразу'}</span>` : `<small>до ${t.sla_days} ${plural(t.sla_days, 'рабочего дня', 'рабочих дней', 'рабочих дней')}</small>`}</a>`;
+  ${t.instant || t.instant_if ? `<span class="fast">${icon('sparkles', 'sm')} сразу</span>` : `<small>до ${t.sla_days} ${plural(t.sla_days, 'рабочего дня', 'рабочих дней', 'рабочих дней')}</small>`}</a>`;
 
 export async function renderNew(ctx) {
   if (ctx.params.type) return renderForm(ctx);

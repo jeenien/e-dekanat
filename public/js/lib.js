@@ -8,6 +8,8 @@ export const icon = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 2
 export class ApiError extends Error { constructor(status, body) { super(body?.error || 'Ошибка сети'); this.status = status; this.body = body; } }
 export async function api(path, { method = 'GET', body } = {}) {
   let res;
+  const started = performance.now();
+  const slowTimer = setTimeout(() => window.orbitaOfferLite?.('Сервер отвечает медленно.'), 5000);
   try {
     res = await fetch('/api' + path, {
       method, credentials: 'same-origin',
@@ -15,8 +17,11 @@ export async function api(path, { method = 'GET', body } = {}) {
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
+    clearTimeout(slowTimer);
     throw new ApiError(0, { error: navigator.onLine ? 'Сервер не отвечает. Попробуйте еще раз.' : 'Нет подключения к интернету' });
   }
+  clearTimeout(slowTimer);
+  if (performance.now() - started > 5000) window.orbitaOfferLite?.('Сервер отвечает медленно.');
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && path !== '/auth/login') { window.dispatchEvent(new Event('orbita:logout')); }
   if (!res.ok) throw new ApiError(res.status, data);

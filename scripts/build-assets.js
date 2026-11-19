@@ -26,7 +26,7 @@ const icons = {
   info: 'info', calendarPlus: 'calendar-plus', lock: 'lock', monitor: 'monitor-smartphone',
   qr: 'qr-code', briefcase: 'briefcase', megaphone: 'megaphone', refresh: 'refresh-cw',
   eye: 'eye', eyeOff: 'eye-off', copy: 'copy', target: 'target', users: 'users', loader: 'loader-circle',
-  coffee: 'coffee', pin: 'pin', printer: 'printer', key: 'key-round', ext: 'external-link',
+  coffee: 'coffee', pin: 'pin', printer: 'printer', key: 'key-round', ext: 'external-link', lite: 'feather',
 };
 const out = {};
 for (const [k, name] of Object.entries(icons)) {

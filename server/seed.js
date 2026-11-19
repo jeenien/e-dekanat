@@ -11,107 +11,59 @@ const DEMO_ACCOUNTS = [
   { login: 'dekanat', password: 'Orbita-Staff-2026', role: 'staff' },
 ];
 
-// Расписание групп: [день, пара, неделя, индекс предмета, вид, аудитория]
-const GROUPS = {
-  'ПИ-21': {
-    subjects: [
-      ['Алгоритмы и структуры данных', 'Колосов Д. А.'],
-      ['Базы данных', 'Мирская Е. В.'],
-      ['Математический анализ', 'Ветлугин П. С.'],
-      ['Веб-разработка', 'Аристова Л. М.'],
-      ['Английский язык', 'Брукс-Андреева Н. Ю.'],
-      ['Теория вероятностей', 'Шахов И. Р.'],
-      ['Физическая культура', 'Гордеев А. А.'],
-    ],
-    plan: [
-      [1, 1, 'all', 0, 'Лекция', 'А-301'], [1, 2, 'all', 0, 'Практика', 'Б-214'], [1, 3, 'odd', 4, 'Практика', 'Л-105'],
-      [2, 2, 'all', 1, 'Лекция', 'А-210'], [2, 3, 'all', 1, 'Лаб. работа', 'Б-318'], [2, 4, 'even', 6, 'Практика', 'Спорткомплекс'],
-      [3, 1, 'all', 2, 'Лекция', 'А-101'], [3, 2, 'all', 2, 'Практика', 'А-115'], [3, 4, 'odd', 5, 'Лекция', 'А-301'],
-      [4, 2, 'all', 3, 'Лекция', 'Онлайн'], [4, 3, 'all', 3, 'Лаб. работа', 'Б-320'], [4, 4, 'all', 4, 'Практика', 'Л-105'],
-      [5, 1, 'even', 5, 'Практика', 'А-118'], [5, 2, 'all', 0, 'Лаб. работа', 'Б-214'], [5, 3, 'all', 6, 'Практика', 'Спорткомплекс'],
-      [6, 2, 'odd', 1, 'Практика', 'Б-318'],
-    ],
-  },
-  'ЭК-31': {
-    subjects: [
-      ['Эконометрика', 'Лаптева О. Г.'],
-      ['Корпоративные финансы', 'Рябинин С. В.'],
-      ['Маркетинг', 'Зорина А. К.'],
-      ['Налоги и налогообложение', 'Ольховский М. Т.'],
-      ['Деловой английский', 'Хэмптон-Сафронова Е. Д.'],
-      ['Анализ данных в Python', 'Колосов Д. А.'],
-    ],
-    plan: [
-      [1, 3, 'all', 0, 'Лекция', 'Э-401'], [1, 4, 'all', 0, 'Практика', 'Э-212'],
-      [2, 1, 'all', 1, 'Лекция', 'Э-401'], [2, 2, 'all', 1, 'Семинар', 'Э-305'], [2, 3, 'odd', 4, 'Практика', 'Л-210'],
-      [3, 3, 'all', 2, 'Лекция', 'Э-120'], [3, 4, 'even', 2, 'Семинар', 'Э-306'],
-      [4, 2, 'all', 3, 'Лекция', 'Э-401'], [4, 3, 'all', 3, 'Семинар', 'Э-302'], [4, 4, 'all', 5, 'Лаб. работа', 'Б-120'],
-      [5, 2, 'all', 5, 'Лекция', 'Онлайн'], [5, 3, 'all', 4, 'Практика', 'Л-210'],
-    ],
-  },
-  'ЛН-11': {
-    subjects: [
-      ['Введение в языкознание', 'Северина М. И.'],
-      ['Практический курс английского языка', 'Доусон-Ильина К. П.'],
-      ['Второй иностранный язык (немецкий)', 'Краус Е. А.'],
-      ['История России', 'Белозеров Г. Н.'],
-      ['Цифровая грамотность', 'Аристова Л. М.'],
-      ['Физическая культура', 'Гордеев А. А.'],
-    ],
-    plan: [
-      [1, 2, 'all', 0, 'Лекция', 'Г-201'], [1, 3, 'all', 1, 'Практика', 'Г-310'], [1, 4, 'all', 1, 'Практика', 'Г-310'],
-      [2, 2, 'all', 2, 'Практика', 'Г-312'], [2, 3, 'all', 3, 'Лекция', 'А-101'], [2, 4, 'odd', 5, 'Практика', 'Спорткомплекс'],
-      [3, 1, 'all', 1, 'Практика', 'Г-310'], [3, 2, 'all', 4, 'Лаб. работа', 'Б-110'], [3, 3, 'even', 3, 'Семинар', 'Г-204'],
-      [4, 3, 'all', 0, 'Семинар', 'Г-204'], [4, 4, 'all', 2, 'Практика', 'Г-312'],
-      [5, 2, 'all', 1, 'Практика', 'Г-310'], [5, 3, 'all', 5, 'Практика', 'Спорткомплекс'],
-    ],
-  },
+// Расписание групп — по открытому расписанию вуза (ФИО преподавателей исключены)
+const SCHEDULE = require('./schedule-data');
+// Дисциплины группы в порядке первого появления в расписании
+const subjectsOf = (g) => [...new Set(SCHEDULE[g].map((r) => r[2]))];
+const MAIN_ROOM = (g, name) => SCHEDULE[g].find((r) => r[2] === name && r[4] !== 'Спортзал')?.[4] || SCHEDULE[g].find((r) => r[2] === name)?.[4] || '—';
+
+// Форма контроля в текущем семестре (по умолчанию — зачет)
+const CONTROL = {
+  'Сравнительная политология': 'exam', 'Китайский язык': 'exam', 'Мировая экономика': 'exam', 'Английский язык': 'exam',
+  'Международные конфликты': 'diff_credit', 'Японский язык': 'exam', 'Теория права и правовые системы современности': 'exam',
+  'История Востока': 'exam', 'История международных отношений и внешней политики России': 'diff_credit',
+  'История страны / региона специализации': 'diff_credit', 'Немецкий язык': 'diff_credit', 'Теория и практика рекламы': 'exam',
+  'Основы теории коммуникации': 'exam', 'Современная пресс-служба': 'diff_credit',
+  'Профессионально-ознакомительная практика (Основы спичрайтинга)': 'diff_credit',
 };
 
 // Курсы прошлых семестров: [название, вид контроля, з.е.]
 const PAST = {
-  'ПИ-21': {
-    1: [['Программирование на Python', 'exam', 5], ['Линейная алгебра', 'exam', 4], ['Дискретная математика', 'exam', 4], ['История России', 'credit', 2], ['Английский язык', 'credit', 3], ['Физическая культура', 'credit', 1]],
-    2: [['Объектно-ориентированное программирование', 'exam', 5], ['Математический анализ (часть 1)', 'exam', 5], ['Архитектура ЭВМ', 'diff_credit', 3], ['Философия', 'credit', 2], ['Английский язык', 'diff_credit', 3], ['Учебная практика', 'diff_credit', 3]],
+  '2УП-05': {
+    1: [['Введение в политологию', 'exam', 5], ['История России', 'exam', 4], ['Китайский язык', 'exam', 6], ['Английский язык', 'diff_credit', 4], ['Основы российской государственности', 'credit', 2], ['Физическая культура', 'credit', 1]],
+    2: [['История политических учений', 'exam', 5], ['Политическая социология', 'exam', 4], ['Китайский язык', 'exam', 6], ['Английский язык', 'diff_credit', 4], ['Философия', 'credit', 3], ['Физическая культура', 'credit', 1]],
   },
-  'ЭК-31': {
-    1: [['Микроэкономика', 'exam', 5], ['Высшая математика', 'exam', 5], ['История России', 'credit', 2], ['Английский язык', 'credit', 3]],
-    2: [['Макроэкономика', 'exam', 5], ['Статистика', 'exam', 4], ['Философия', 'credit', 2], ['Английский язык', 'diff_credit', 3]],
-    3: [['Бухгалтерский учет', 'exam', 5], ['Финансы', 'exam', 4], ['Менеджмент', 'diff_credit', 3], ['Правоведение', 'credit', 2]],
-    4: [['Мировая экономика', 'exam', 4], ['Теория вероятностей и статистика', 'exam', 5], ['Деньги, кредит, банки', 'diff_credit', 3], ['Курсовая работа по экономике фирмы', 'coursework', 2]],
+  '2МЖ-05': {
+    1: [['Введение в теорию массовых коммуникаций', 'exam', 5], ['История России', 'exam', 4], ['Английский язык', 'diff_credit', 4], ['Немецкий язык', 'credit', 4], ['Русский язык и культура речи', 'credit', 2]],
+    2: [['История отечественной журналистики', 'exam', 5], ['Основы маркетинга', 'exam', 4], ['Английский язык', 'diff_credit', 4], ['Немецкий язык', 'credit', 4], ['Философия', 'credit', 3]],
   },
-  'ЛН-11': {},
+  '1МО-01': {},
 };
 
-const CURRENT_CONTROL = {
-  'ПИ-21': ['exam', 'exam', 'exam', 'diff_credit', 'credit', 'credit', 'credit'],
-  'ЭК-31': ['exam', 'exam', 'diff_credit', 'exam', 'credit', 'credit'],
-  'ЛН-11': ['exam', 'exam', 'credit', 'exam', 'credit', 'credit'],
-};
-
-// Профиль успеваемости студента: насколько хорошо он набирает баллы (0…1)
+// Профиль успеваемости: базовый уровень (0…1) и отдельные дисциплины
 const STUDENTS = [
   {
     login: 'anna', last: 'Ветрова', first: 'Анна', middle: 'Сергеевна',
-    faculty: 'Факультет информационных технологий', code: '09.03.04', program: 'Программная инженерия', profile: 'Разработка программных систем',
-    course: 2, group: 'ПИ-21', form: 'Очная', funding: 'Бюджет', year: 2025, stipend: 'Академическая повышенная',
-    curator: 'Мирская Елена Викторовна', book: '25-ПИ-0417', email: 'a.vetrova@student.gorizont.example', phone: '+7 900 000-14-17', birth: '2007-03-14',
-    skill: [0.95, 0.88, 0.8, 0.97, 0.9, 0.85, 1], past: [['отлично', 'отлично', 'хорошо', 'зачтено', 'зачтено', 'зачтено'], ['отлично', 'хорошо', 'отлично', 'зачтено', 'отлично', 'отлично']],
+    faculty: 'Факультет управления и политики', code: '41.03.04', program: 'Политология', profile: 'Сравнительная политология и мировые политические процессы',
+    course: 2, group: '2УП-05', form: 'Очная', funding: 'Бюджет', year: 2025, stipend: 'Академическая повышенная',
+    curator: 'Мирская Елена Викторовна', book: '25-УП-0417', email: 'a.vetrova@student.gorizont.example', phone: '+7 900 000-14-17', birth: '2007-03-14',
+    base: 0.92, special: {}, past: [['отлично', 'отлично', 'хорошо', 'хорошо', 'зачтено', 'зачтено'], ['отлично', 'отлично', 'отлично', 'хорошо', 'зачтено', 'зачтено']],
   },
   {
     login: 'timur', last: 'Северцев', first: 'Тимур', middle: 'Андреевич',
-    faculty: 'Экономический факультет', code: '38.03.01', program: 'Экономика', profile: 'Финансы и кредит',
-    course: 3, group: 'ЭК-31', form: 'Очная', funding: 'Договор', year: 2024, stipend: 'Не назначена',
-    curator: 'Лаптева Ольга Геннадьевна', book: '24-ЭК-1183', email: 't.severtsev@student.gorizont.example', phone: '+7 900 000-11-83', birth: '2006-09-02',
-    skill: [0.45, 0.7, 0.82, 0.38, 0.6, 0.9],
-    past: [['хорошо', 'удовлетворительно', 'зачтено', 'зачтено'], ['удовлетворительно', 'хорошо', 'зачтено', 'хорошо'], ['хорошо', 'удовлетворительно', 'отлично', 'зачтено'], ['хорошо', 'неудовлетворительно', 'хорошо', 'отлично']],
+    faculty: 'Факультет международной журналистики', code: '42.03.01', program: 'Реклама и связи с общественностью', profile: 'Международные связи с общественностью',
+    course: 2, group: '2МЖ-05', form: 'Очная', funding: 'Договор', year: 2025, stipend: 'Не назначена',
+    curator: 'Лаптева Ольга Геннадьевна', book: '25-МЖ-1183', email: 't.severtsev@student.gorizont.example', phone: '+7 900 000-11-83', birth: '2006-09-02',
+    base: 0.7, special: { 'Теория и практика рекламы': 0.45, 'Основы теории коммуникации': 0.5 },
+    past: [['хорошо', 'удовлетворительно', 'хорошо', 'зачтено', 'зачтено'], ['удовлетворительно', 'неудовлетворительно', 'хорошо', 'зачтено', 'зачтено']],
+    debt: 'Основы маркетинга',
   },
   {
     login: 'nika', last: 'Полярная', first: 'Ника', middle: 'Олеговна',
-    faculty: 'Институт гуманитарных наук', code: '45.03.02', program: 'Лингвистика', profile: 'Перевод и переводоведение',
-    course: 1, group: 'ЛН-11', form: 'Очная', funding: 'Бюджет', year: 2026, stipend: 'Академическая',
-    curator: 'Северина Марина Игоревна', book: '26-ЛН-0032', email: 'n.polyarnaya@student.gorizont.example', phone: '+7 900 000-00-32', birth: '2008-07-21',
-    skill: [0.8, 0.9, 0.7, 0.75, 0.95, 1], past: [],
+    faculty: 'Факультет международных отношений', code: '41.03.01', program: 'Зарубежное регионоведение', profile: 'Страны Восточной Азии',
+    course: 1, group: '1МО-01', form: 'Очная', funding: 'Бюджет', year: 2026, stipend: 'Академическая',
+    curator: 'Северина Марина Игоревна', book: '26-МО-0032', email: 'n.polyarnaya@student.gorizont.example', phone: '+7 900 000-00-32', birth: '2008-07-21',
+    base: 0.82, special: { 'Японский язык': 0.9 }, past: [],
   },
 ];
 
@@ -145,12 +97,14 @@ function seed(db) {
     // Сотрудник деканата
     insUser.run('dekanat', hashPassword(pwd.dekanat), 'staff', 'Ладогина', 'Ольга', 'Викторовна', 'Специалист по учебной работе');
 
-    // Расписание групп
+    // Расписание групп (одна пара в слот, неделя одинаковая)
     const insLesson = db.prepare('INSERT INTO lessons (group_name, weekday, pair, week, subject, kind, room, teacher, online_url) VALUES (?,?,?,?,?,?,?,?,?)');
-    for (const [g, cfg] of Object.entries(GROUPS)) {
-      for (const [wd, pair, week, si, kind, room] of cfg.plan) {
-        const [subject, teacher] = cfg.subjects[si];
-        insLesson.run(g, wd, pair, week, subject, kind, room, teacher, room === 'Онлайн' ? 'https://meet.gorizont.example/' + g : null);
+    for (const [g, rows] of Object.entries(SCHEDULE)) {
+      const seen = new Set();
+      for (const [wd, pair, subject, kind, room] of rows) {
+        if (seen.has(`${wd}-${pair}`)) continue;
+        seen.add(`${wd}-${pair}`);
+        insLesson.run(g, wd, pair, 'all', subject, kind, room, '', null);
       }
     }
 
@@ -166,25 +120,23 @@ function seed(db) {
     };
     const insChange = db.prepare('INSERT INTO schedule_changes (group_name, date, pair, type, subject, kind, new_room, new_teacher, new_date, new_pair, note) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
     const insNotif = db.prepare('INSERT INTO notifications (audience, category, title, body, link, important, pinned, author, created_at) VALUES (?,?,?,?,?,?,?,?,?)');
-    for (const g of Object.keys(GROUPS)) {
+    for (const g of Object.keys(SCHEDULE)) {
       const a = findLesson(g, 0);
       if (a) {
-        const l = a.lessons[a.lessons.length - 1];
-        insChange.run(g, a.date, l.pair, 'room', l.subject, l.kind, 'А-405', null, null, null, 'Аудитория на ремонте');
-        insNotif.run(`group:${g}`, 'schedule', `Смена аудитории: ${l.subject}`, `${a.offset === 0 ? 'Сегодня' : 'В ближайший учебный день'} занятие (${l.pair} пара) пройдет в аудитории А-405 вместо ${l.room}.`, '#/schedule', 1, 0, 'Деканат', new Date(Date.now() - 3 * 3600e3).toISOString());
+        const l = [...a.lessons].reverse().find((x) => x.room !== 'Спортзал') || a.lessons[0];
+        insChange.run(g, a.date, l.pair, 'room', l.subject, l.kind, '4138 (Корпус МО)', null, null, null, 'Аудитория на ремонте');
+        insNotif.run(`group:${g}`, 'schedule', `Смена аудитории: ${l.subject}`, `${a.offset === 0 ? 'Сегодня' : 'В ближайший учебный день'} занятие (${l.pair} пара) пройдет в аудитории 4138 (Корпус МО) вместо ${l.room}.`, '#/schedule', 1, 0, 'Деканат', new Date(Date.now() - 3 * 3600e3).toISOString());
       }
       const b = findLesson(g, (a ? a.offset : 0) + 1);
       if (b) {
         const l = b.lessons[0];
         insChange.run(g, b.date, l.pair, 'cancel', l.subject, l.kind, null, null, null, null, 'Преподаватель на конференции');
         insNotif.run(`group:${g}`, 'schedule', `Отмена пары: ${l.subject}`, `${l.pair} пара (${l.kind.toLowerCase()}) ${b.date.split('-').reverse().join('.')} отменена — преподаватель на конференции. Отработка будет объявлена дополнительно.`, '#/schedule', 1, 0, 'Деканат', new Date(Date.now() - 20 * 3600e3).toISOString());
-        const l2 = b.lessons[1];
-        insChange.run(g, b.date, l2.pair, 'teacher', l2.subject, l2.kind, null, 'Шахов И. Р.', null, null, 'Замена преподавателя');
       }
       const c = findLesson(g, (b ? b.offset : 2) + 2);
       if (c) {
-        const subj = GROUPS[g].subjects[0];
-        insChange.run(g, c.date, 6, 'extra', subj[0], 'Консультация', 'А-301', subj[1], null, null, 'Дополнительная консультация перед контрольной');
+        const subj = subjectsOf(g).find((x) => CONTROL[x] === 'exam') || subjectsOf(g)[0];
+        insChange.run(g, c.date, 7, 'extra', subj, 'Консультация', '3162 (Корпус МО)', '', null, null, 'Дополнительная консультация перед контрольной');
       }
     }
 
@@ -206,29 +158,28 @@ function seed(db) {
       Object.entries(pastSems).forEach(([sem, list], si) => {
         list.forEach(([name, control, credits], i) => {
           const semDate = pastSemesterDate(semStart.getFullYear(), A.semesterFor(s.course, today), Number(sem), i);
-          const did = insDisc.run(s.group, Number(sem), name, control, credits, credits * 36, 'Преподаватель кафедры', semDate, null, null, null).lastInsertRowid;
+          const did = insDisc.run(s.group, Number(sem), name, control, credits, credits * 36, '', semDate, null, null, null).lastInsertRowid;
           const mark = (s.past[si] || [])[i] || 'зачтено';
-          const points = mark === 'отлично' ? 86 + Math.floor(rand() * 13) : mark === 'хорошо' ? 71 + Math.floor(rand() * 13) : mark === 'удовлетворительно' ? 56 + Math.floor(rand() * 12) : mark === 'зачтено' ? 60 + Math.floor(rand() * 35) : 30 + Math.floor(rand() * 20);
+          const points = mark === 'отлично' ? 90 + Math.floor(rand() * 11) : mark === 'хорошо' ? 75 + Math.floor(rand() * 15) : mark === 'удовлетворительно' ? 60 + Math.floor(rand() * 15) : mark === 'зачтено' ? 62 + Math.floor(rand() * 36) : 35 + Math.floor(rand() * 20);
           insFinal.run(uid, did, mark, points, semDate, 1);
         });
       });
 
       // Текущий семестр
       const sem = A.semesterFor(s.course, today);
-      const cfg = GROUPS[s.group];
-      cfg.subjects.forEach(([name, teacher], i) => {
-        const control = CURRENT_CONTROL[s.group][i];
+      subjectsOf(s.group).forEach((name, i) => {
+        const control = CONTROL[name] || 'credit';
         const isExam = control === 'exam';
-        const examDay = isExam ? A.addDays(sessStart, 1 + i * 4) : A.addDays(A.parseDate(sess.credits_week[0]), i % 6);
+        const examDay = isExam ? A.addDays(sessStart, 1 + i * 3) : A.addDays(A.parseDate(sess.credits_week[0]), i % 6);
         const consult = isExam ? A.addDays(examDay, -1) : null;
-        const did = insDisc.run(s.group, sem, name, control, isExam ? 5 : 3, isExam ? 180 : 108, teacher,
-          `${A.isoDate(examDay)}T${isExam ? '09:00' : '13:50'}`, [cfg.plan.find((p) => p[3] === i)?.[5]].map((r) => (!r || r === 'Онлайн' ? 'А-301' : r))[0],
-          consult ? `${A.isoDate(consult)}T15:30` : null, Math.round((isExam ? 38 : 64) + rand() * 12)).lastInsertRowid;
+        const did = insDisc.run(s.group, sem, name, control, isExam ? 5 : 3, isExam ? 180 : 108, '',
+          `${A.isoDate(examDay)}T${isExam ? '09:00' : '14:30'}`, MAIN_ROOM(s.group, name),
+          consult ? `${A.isoDate(consult)}T16:00` : null, Math.round((isExam ? 40 : 68) + rand() * 12)).lastInsertRowid;
         // Контрольные точки: часть прошла, часть впереди
         const items = isExam
           ? [['Посещаемость', 10, -50], ['Контрольная точка 1', 15, -35], ['Лабораторные / практика', 15, -12], ['Контрольная точка 2', 20, 18]]
           : [['Посещаемость', 15, -50], ['Практические задания', 30, -30], ['Контрольная точка 1', 25, -8], ['Итоговый проект', 30, 24]];
-        const sk = s.skill[i] ?? 0.8;
+        const sk = s.special[name] ?? Math.min(1, s.base + (rand() - 0.5) * 0.12);
         items.forEach(([title, max, off]) => {
           const passed = off < 0;
           const score = passed ? Math.max(0, Math.min(max, Math.round(max * (sk - 0.08 + rand() * 0.14)))) : null;
@@ -243,13 +194,13 @@ function seed(db) {
 
     // Пересдачу назначают деканат и кафедра: у Тимура долг по прошлому семестру
     let rd = A.addDays(today, 2);
-    while (A.weekday(rd) > 5 || lessonsOn('ЭК-31', rd).some((l) => l.pair === 5)) rd = A.addDays(rd, 1);
+    while (A.weekday(rd) > 5 || lessonsOn('2МЖ-05', rd).some((l) => l.pair === 5)) rd = A.addDays(rd, 1);
     db.prepare('INSERT INTO retakes (student_id, discipline, date, pair, room, examiner, attempt, set_by) VALUES (?,?,?,?,?,?,?,?)')
-      .run(uid('timur'), 'Теория вероятностей и статистика', A.isoDate(rd), 5, 'Э-214', 'Шахов И. Р.', 1, 'Ладогина О. В.');
+      .run(uid('timur'), 'Основы маркетинга', A.isoDate(rd), 5, '4138 (Корпус МО)', 'Комиссия кафедры', 1, 'Ладогина О. В.');
 
     // Пропуски: по 2 академических часа за пару. Уважительные (по справке) не учитываются в лимите.
     const insAbs = db.prepare('INSERT OR IGNORE INTO absences (student_id, date, pair, subject, excused, note) VALUES (?,?,?,?,?,?)');
-    const plan = { anna: { group: 'ПИ-21', unexcused: 3, excused: 2 }, timur: { group: 'ЭК-31', unexcused: 12, excused: 2 }, nika: { group: 'ЛН-11', unexcused: 0, excused: 0 } };
+    const plan = { anna: { group: '2УП-05', unexcused: 3, excused: 2 }, timur: { group: '2МЖ-05', unexcused: 12, excused: 2 }, nika: { group: '1МО-01', unexcused: 0, excused: 0 } };
     const absentDays = {};
     for (const [login, cfg] of Object.entries(plan)) {
       const id = uid(login);
@@ -289,13 +240,13 @@ function seed(db) {
         const lateness = login === 'timur' ? Math.floor(rand() * 30) - 8 : -(5 + Math.floor(rand() * 20));
         const inM = toMin(A.PAIRS[ls[0].pair][0]) + lateness;
         const outM = toMin(A.PAIRS[ls[ls.length - 1].pair][1]) + 3 + Math.floor(rand() * (login === 'anna' ? 70 : 25));
-        const gateIn = ls[0].room.startsWith('Э') ? 'Корпус Э, турникет 1' : ls[0].room.startsWith('Г') ? 'Корпус Г, вход' : ls[0].room === 'Спорткомплекс' ? 'Спорткомплекс' : 'Корпус А, турникет 2';
+        const gateIn = /Новый корпус/.test(ls[0].room) ? 'Новый корпус, вход' : /МЭО/.test(ls[0].room) ? 'Корпус МЭО, турникет 1' : ls[0].room === 'Спортзал' ? 'Спорткомплекс' : 'Корпус МО, турникет 2';
         if (i === 0 && inM > nowMin) continue;
         insPass.run(id, `${date}T${hm(inM)}:00`, 'in', gateIn);
         // иногда выходит на обед
-        if (ls.length >= 3 && rand() < 0.35 && (i > 0 || nowMin > 13 * 60 + 40)) {
-          insPass.run(id, `${date}T${hm(12 * 60 + 2 + Math.floor(rand() * 10))}:00`, 'out', gateIn);
-          insPass.run(id, `${date}T${hm(12 * 60 + 35 + Math.floor(rand() * 15))}:00`, 'in', gateIn);
+        if (ls.length >= 3 && rand() < 0.35 && (i > 0 || nowMin > 14 * 60 + 25)) {
+          insPass.run(id, `${date}T${hm(13 * 60 + 32 + Math.floor(rand() * 10))}:00`, 'out', gateIn);
+          insPass.run(id, `${date}T${hm(14 * 60 + 5 + Math.floor(rand() * 15))}:00`, 'in', gateIn);
         }
         if (i === 0 && outM > nowMin) continue; // сегодня еще в университете
         insPass.run(id, `${date}T${hm(outM)}:00`, 'out', gateIn);
@@ -305,14 +256,14 @@ function seed(db) {
     // Дедлайны групп
     const insDl = db.prepare('INSERT INTO deadlines (group_name, discipline, title, due_at, kind) VALUES (?,?,?,?,?)');
     const dls = {
-      'ПИ-21': [['Алгоритмы и структуры данных', 'Лабораторная №5: AVL-дерево', 1, 'lab'], ['Базы данных', 'Курсовой проект: ER-диаграмма', 3, 'project'], ['Математический анализ', 'Контрольная точка 2', 6, 'test'], ['Веб-разработка', 'Сдать макет личного кабинета', 9, 'project'], ['Английский язык', 'Эссе «Technology and Society»', 12, 'essay']],
-      'ЭК-31': [['Эконометрика', 'Домашнее задание: регрессия', 0, 'homework'], ['Корпоративные финансы', 'Кейс: оценка проекта NPV', 4, 'project'], ['Налоги и налогообложение', 'Реферат', 8, 'essay'], ['Анализ данных в Python', 'Ноутбук с EDA', 11, 'lab']],
-      'ЛН-11': [['Практический курс английского языка', 'Аудирование: unit 7', 2, 'homework'], ['Введение в языкознание', 'Доклад о языковых семьях', 7, 'essay'], ['Цифровая грамотность', 'Тест по информационной безопасности', 10, 'test']],
+      '2УП-05': [['Сравнительная политология', 'Эссе: модели демократического транзита', 1, 'essay'], ['Китайский язык', 'Иероглифический диктант, урок 9', 3, 'test'], ['Мировая экономика', 'Кейс: торговые войны', 6, 'project'], ['Международные конфликты', 'Аналитическая записка по конфликту', 9, 'essay'], ['Английский язык', 'Презентация «Global Governance»', 12, 'project']],
+      '2МЖ-05': [['Теория и практика рекламы', 'Медиаплан рекламной кампании', 0, 'project'], ['Основы теории коммуникации', 'Реферат: модели коммуникации', 4, 'essay'], ['Немецкий язык', 'Контрольная: Perfekt', 8, 'test'], ['Современная пресс-служба', 'Пресс-релиз к мероприятию', 11, 'project']],
+      '1МО-01': [['Японский язык', 'Кандзи: урок 6', 2, 'homework'], ['История Востока', 'Доклад о реформах Мэйдзи', 7, 'essay'], ['Теория права и правовые системы современности', 'Тест по источникам права', 10, 'test']],
     };
     for (const [g, list] of Object.entries(dls)) for (const [disc, title, off, kind] of list) insDl.run(g, disc, title, dt(off, off === 0 ? '23:59' : '18:00'), kind);
     const anna = db.prepare("SELECT id FROM users WHERE login='anna'").get().id;
     const timur = db.prepare("SELECT id FROM users WHERE login='timur'").get().id;
-    const firstAnnaDl = db.prepare("SELECT id FROM deadlines WHERE group_name='ПИ-21' ORDER BY due_at LIMIT 1").get().id;
+    const firstAnnaDl = db.prepare("SELECT id FROM deadlines WHERE group_name='2УП-05' ORDER BY due_at LIMIT 1").get().id;
     db.prepare('INSERT INTO deadline_done (user_id, deadline_id) VALUES (?,?)').run(anna, firstAnnaDl);
 
     // Общие объявления
@@ -321,8 +272,8 @@ function seed(db) {
     insNotif.run('all', 'news', 'Выбор дисциплин по выбору на весенний семестр', 'До конца месяца откройте раздел «Учебный план» и выберите два курса по выбору. Если не выбрать, курсы назначат автоматически.', null, 0, 0, 'Учебный офис', ago(52));
     insNotif.run('all', 'finance', 'Стипендия за текущий месяц перечислена', 'Выплата поступит на карту в течение двух рабочих дней. Справку о размере стипендии можно заказать онлайн.', '#/requests/new/stipend_cert', 0, 0, 'Бухгалтерия', ago(76));
     insNotif.run('all', 'news', 'Зимний кампус: набор волонтеров', 'Студенческий совет ищет волонтеров на новогодний фестиваль. Волонтерские часы учитываются в портфолио.', null, 0, 0, 'Студсовет', ago(120));
-    insNotif.run('faculty:Факультет информационных технологий', 'news', 'Хакатон факультета ИТ', 'Регистрация команд до пятницы. Призеры получают автомат по «Веб-разработке».', null, 0, 0, 'Деканат ФИТ', ago(8));
-    insNotif.run(`user:${timur}`, 'grades', 'Назначена пересдача', `«Теория вероятностей и статистика»: ${rd.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}, 15:30, аудитория Э-214. Пересдачу назначили деканат и кафедра — заявление не нужно.`, '#/schedule/' + A.isoDate(rd), 1, 1, 'Деканат', ago(5));
+    insNotif.run('faculty:Факультет управления и политики', 'news', 'Модель ООН: регистрация команд', 'Регистрация команд до пятницы. Участие засчитывается как проектная работа по «Международным конфликтам».', null, 0, 0, 'Деканат ФИТ', ago(8));
+    insNotif.run(`user:${timur}`, 'grades', 'Назначена пересдача', `«Основы маркетинга»: ${rd.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}, 16:00, аудитория 4138 (Корпус МО). Пересдачу назначили деканат и кафедра — заявление не нужно.`, '#/schedule/' + A.isoDate(rd), 1, 1, 'Деканат', ago(5));
 
     // Заявки с историей
     const insReq = db.prepare('INSERT INTO requests (public_id, student_id, type, title, payload, status, created_at, updated_at, eta, assignee, doc_code) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
