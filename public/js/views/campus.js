@@ -40,7 +40,7 @@ export function absenceList(list) {
   if (!list.length) return empty('checkCircle', 'Пропусков нет', 'Так держать!');
   return `<div class="list">${list.map((a) => `<div class="li" style="padding:10px 0"><div class="ico ${a.excused ? 'info' : 'warn'}">${icon(a.excused ? 'docs' : 'clock')}</div>
     <div class="grow"><div class="t">${esc(a.subject)}</div><div class="s">${fmt.dmShort(parseISO(a.date))}, ${a.pair} пара · ${a.start}</div></div>
-    <span class="chip ${a.excused ? 'info' : ''}">${a.excused ? 'по справке' : `${a.hours} ч`}</span></div>`).join('')}</div>`;
+    <span class="chip ${a.excused ? 'info' : ''}">${a.excused ? 'по справке' : `${a.hours} ак. ч.`}</span></div>`).join('')}</div>`;
 }
 
 export async function render(ctx) {
@@ -55,10 +55,10 @@ export async function render(ctx) {
     ${tab === 'absences' ? `
       <div class="grid c2" style="align-items:start">
         <section class="card"><div class="row between" style="align-items:flex-end">
-            <div><div class="small muted">Без уважительной причины</div><div class="big-num" style="${absenceText(a).over ? 'color:var(--bad)' : ''}">${a.hours} <small>ак. ч из ${absenceText(a).limit} ак. ч</small></div><div style="margin-top:6px">${absenceChip(a)}</div></div>
-            ${a.excused_hours ? `<span class="chip info">${icon('docs', 'sm')} ${a.excused_hours} ч по справке</span>` : ''}</div>
+            <div><div class="small muted">Без уважительной причины</div><div class="big-num" style="${absenceText(a).over ? 'color:var(--bad)' : ''}">${a.hours} <small>ак. ч. из ${absenceText(a).limit} ак. ч.</small></div><div style="margin-top:6px">${absenceChip(a)}</div></div>
+            ${a.excused_hours ? `<span class="chip info">${icon('docs', 'sm')} ${a.excused_hours} ак. ч. по справке</span>` : ''}</div>
           ${absenceMeter(a)}
-          <div class="legend"><span><i class="sw" style="background:var(--fill)"></i>1 пара = 2 ак. ч</span><span><i class="sw tick"></i>порог</span><span><i class="sw" style="background:var(--info-soft);border:1px solid var(--info)"></i>по справке — не считается</span></div>
+          <div class="legend"><span><i class="sw" style="background:var(--fill)"></i>1 пара = 2 ак. ч.</span><span><i class="sw tick"></i>порог</span><span><i class="sw" style="background:var(--info-soft);border:1px solid var(--info)"></i>по справке — не считается</span></div>
         </section>
         ${d.retakes.length ? `<section class="card"><div class="card-h"><h2>Пересдачи</h2></div>${d.retakes.map((r) => `<a class="li" href="#/schedule/${esc(r.date)}" style="padding:8px 0;border:0"><div class="ico warn">${icon('refresh')}</div><div class="grow"><div class="t">${esc(r.discipline)}</div><div class="s">${fmt.dayTitle(parseISO(r.date))}, ${r.start} · ${esc(r.room)}</div></div>${icon('chevronRight')}</a>`).join('')}</section>` : ''}
       </div>
@@ -70,7 +70,7 @@ export async function render(ctx) {
           <div class="small muted" style="margin-top:6px">${t.first_in ? `вход в ${t.first_in}${t.last_out && !t.inside ? ` · выход в ${t.last_out}` : ''}` : 'Сегодня проходов через турникеты не было'}</div></section>
         <section class="card"><div class="card-h"><h2>За неделю</h2><span class="chip">${Math.round(c.week_minutes / 60)} ч · ${c.week_days} ${plural(c.week_days, 'день', 'дня', 'дней')}</span></div>${campusBars(c.days)}</section>
       </div>
-      <section class="card"><div class="card-h"><h2>Проходы за 2 недели</h2></div>${passDays(c.days)}</section>`}
+      <section class="card"><div class="card-h"><h2>Проходы за неделю</h2></div>${passDays(c.days)}</section>`}
   </div>`;
   ctx.el.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { location.hash = b.dataset.tab === 'absences' ? '#/campus' : '#/campus/passes'; });
 }

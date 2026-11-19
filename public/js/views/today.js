@@ -52,13 +52,13 @@ export function bindDeadlines(root, onChange) {
 }
 
 // Пропуски: шкала с порогами «выговор» и «отчисление», без лишнего текста
-// Пропуски: до 30 ак. ч шкала до выговора; после — до 60 ак. ч, это уже риск отчисления
+// Пропуски: до 30 ак. ч. шкала до выговора; после — до 60 ак. ч., это уже риск отчисления
 export function absenceText(a) {
   const over = a.hours >= a.limits.warning;
-  return { over, limit: over ? a.limits.expulsion : a.limits.warning, text: `${a.hours} ак. ч из ${over ? a.limits.expulsion : a.limits.warning} ак. ч` };
+  return { over, limit: over ? a.limits.expulsion : a.limits.warning, text: `${a.hours} ак. ч. из ${over ? a.limits.expulsion : a.limits.warning} ак. ч.` };
 }
 export function absenceChip(a) {
-  return a.level === 'ok' ? '<span class="chip ok">в норме</span>' : a.level === 'near' ? '<span class="chip warn">близко к лимиту</span>'
+  return a.level === 'ok' ? '' : a.level === 'near' ? '<span class="chip warn">близко к лимиту</span>'
     : a.level === 'warning' ? '<span class="chip bad">риск отчисления</span>' : '<span class="chip bad">лимит исчерпан</span>';
 }
 export function absenceMeter(a) {
@@ -68,13 +68,13 @@ export function absenceMeter(a) {
   return `<div class="meter" role="img" aria-label="Пропущено ${a.hours} из ${limit} академических часов">
     <i class="${cls}" style="width:${pct(a.hours)}%"></i>
     ${over ? `<span class="th" style="left:${pct(a.limits.warning)}%"><b>${a.limits.warning}</b><small>выговор</small></span>` : ''}
-    <span class="th end" style="left:calc(100% - 2px)"><b>${limit} ак. ч</b></span></div>`;
+    <span class="th end" style="left:calc(100% - 2px)"><b>${limit} ак. ч.</b></span></div>`;
 }
 function absenceCard(a) {
   const t = absenceText(a);
   return `<a class="card" href="#/campus" style="color:var(--text);display:block"><div class="card-h"><h2>Пропуски</h2>${absenceChip(a)}</div>
-    <div class="big-num" style="${t.over ? 'color:var(--bad)' : ''}">${a.hours} <small>ак. ч из ${t.limit} ак. ч${t.over ? ' · риск отчисления' : ''}</small></div>
-    ${a.excused_hours ? `<div class="xs faint" style="margin-top:4px">+ ${a.excused_hours} ак. ч по справке не учитываются</div>` : ''}
+    <div class="big-num" style="${t.over ? 'color:var(--bad)' : ''}">${a.hours} <small>ак. ч. из ${t.limit} ак. ч.${t.over ? ' · риск отчисления' : ''}</small></div>
+    ${a.excused_hours ? `<div class="xs faint" style="margin-top:4px">+ ${a.excused_hours} ак. ч. по справке не учитываются</div>` : ''}
     ${absenceMeter(a)}</a>`;
 }
 const hmin = (m) => `${Math.floor(m / 60)} ч ${String(m % 60).padStart(2, '0')} мин`;

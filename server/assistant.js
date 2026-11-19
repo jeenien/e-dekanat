@@ -52,7 +52,7 @@ function contextText(c) {
     `Сессия: ${g.session.name} ${g.session.start}…${g.session.end}. Экзамены/зачеты: ${g.session.exams.map((e) => `${e.name} ${e.date.replace('T', ' ')} ${e.room}`).join('; ')}.`,
     `Дедлайны: ${c.deadlines.length ? c.deadlines.map((d) => `${d.title} (${d.discipline}) до ${d.due_at.replace('T', ' ').slice(0, 16)}`).join('; ') : 'нет'}.`,
     `Пересдачи: ${c.retakes.length ? c.retakes.map((r) => `${r.discipline} ${r.date} ${r.start}, ${r.room}`).join('; ') : 'нет'}.`,
-    `Пропуски (неуважительные): ${c.abs.hours} ак. ч из 30 до выговора; по справке ${c.abs.excused_hours} ч.`,
+    `Пропуски (неуважительные): ${c.abs.hours} ак. ч. из 30 до выговора; по справке ${c.abs.excused_hours} ак. ч.`,
     `Заявки: ${c.requests.length ? c.requests.map((r) => `${r.title} — ${r.status}`).join('; ') : 'нет'}.`,
   ].join('\n');
 }
@@ -88,7 +88,7 @@ function localAnswer(c, text) {
       actions.push(ACTIONS.rector_retake);
     } else answer = 'Задолженностей и назначенных пересдач нет 🎉';
   } else if (has('пропус', 'прогул', 'выговор', 'отчисл')) {
-    answer = c.abs.hours >= 30 ? `Пропусков без уважительной причины: ${c.abs.hours} ак. ч из 60 ак. ч — это риск отчисления. Пропуски по справке (${c.abs.excused_hours} ак. ч) не учитываются.` : `Пропусков без уважительной причины: ${c.abs.hours} ак. ч из 30 ак. ч (${c.abs.hours / 2} пар). Пропуски по справке (${c.abs.excused_hours} ак. ч) не учитываются.`;
+    answer = c.abs.hours >= 30 ? `Пропусков без уважительной причины: ${c.abs.hours} ак. ч. из 60 ак. ч. — это риск отчисления. Пропуски по справке (${c.abs.excused_hours} ак. ч.) не учитываются.` : `Пропусков без уважительной причины: ${c.abs.hours} ак. ч. из 30 ак. ч. (${c.abs.hours / 2} пар). Пропуски по справке (${c.abs.excused_hours} ак. ч.) не учитываются.`;
     actions.push({ label: 'Открыть «Посещаемость»', href: '#/campus' });
   } else if (has('допуск', 'балл', 'успева', 'оценк', 'экзамен', 'сесси', 'автомат', 'зачет', 'зачет')) {
     const risk = c.g.current.filter((x) => x.status !== 'ok');

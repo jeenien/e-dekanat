@@ -98,7 +98,7 @@ function createApi(db, auth) {
 
   // ---------- Посещаемость и проходы (только свои) ----------
   api.get('/attendance', student, (req, res) => {
-    res.json({ absences: S.absencesFor(db, req.user.id), campus: S.campusFor(db, req.user.id, 14), retakes: S.retakesFor(db, req.user.id) });
+    res.json({ absences: S.absencesFor(db, req.user.id), campus: S.campusFor(db, req.user.id, 7), retakes: S.retakesFor(db, req.user.id) });
   });
 
   // ---------- Дедлайны ----------
@@ -292,7 +292,7 @@ function createApi(db, auth) {
     if (!r) return res.status(404).json({ error: 'Студент не найден' });
     auth.audit(req.user.id, 'staff_view_attendance', String(id), req.ip);
     res.json({ student: { id: r.id, name: `${r.last_name} ${r.first_name} ${r.middle_name || ''}`.trim(), group: r.group_name, course: r.course },
-      absences: S.absencesFor(db, id), campus: S.campusFor(db, id, 14), retakes: S.retakesFor(db, id) });
+      absences: S.absencesFor(db, id), campus: S.campusFor(db, id, 7), retakes: S.retakesFor(db, id) });
   });
   // Пересдачи назначает деканат
   api.post('/staff/retakes', staff, (req, res) => {
