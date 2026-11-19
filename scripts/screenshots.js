@@ -12,7 +12,7 @@ fs.mkdirSync(OUT, { recursive: true });
   const errors = [];
   const watch = (p, tag) => {
     p.on('pageerror', (e) => errors.push(`${tag}: ${e.message}`));
-    p.on('console', (m) => { if (m.type() === 'error' && !/favicon|401|404|422/.test(m.text())) errors.push(`${tag}: ${m.text()}`); });
+    p.on('console', (m) => { if (m.type() === 'error' && !/favicon|401|404|409|422/.test(m.text())) errors.push(`${tag}: ${m.text()}`); });
   };
   const shot = (p, name, full = false) => p.screenshot({ path: path.join(OUT, name + '.png'), fullPage: full });
   async function login(p, who) {
@@ -119,9 +119,14 @@ fs.mkdirSync(OUT, { recursive: true });
   await p.click('[data-s="ready"]'); await p.waitForTimeout(600);
   await p.goto(BASE + '/#/staff/students'); await p.waitForSelector('tr[data-id]'); await shot(p, '38-desktop-staff-students');
   await p.click('tr[data-id]'); await p.waitForSelector('#rt'); await p.waitForTimeout(300); await shot(p, '39-desktop-staff-student', true);
-  await p.goto(BASE + '/#/staff/schedule'); await p.waitForSelector('#p'); await p.fill('#rm', 'Б-201'); await p.fill('#nt', 'Проектор не работает');
+  await p.goto(BASE + '/#/staff/schedule'); await p.waitForSelector('#dayview .row, #dayview .empty');
+  await p.selectOption('#g', '2УП-05');
+  // ищем день, когда у группы есть пары, и пробуем поставить пару поверх них — должна появиться ошибка
+  for (let k = 0; k < 7; k++) { if (await p.$('#dayview .row')) break; await p.evaluate(() => { const d = document.querySelector('#d'); const x = new Date(d.value); x.setDate(x.getDate() + 1); d.value = x.toISOString().slice(0, 10); d.dispatchEvent(new Event('change')); }); await p.waitForTimeout(300); }
+  await p.fill('#st', '09:30'); await p.fill('#en', '12:30'); await p.fill('#sj', 'Консультация по срезу'); await p.fill('#xr', '4138 (Корпус МО)');
+  await p.click('#sc button.btn'); await p.waitForSelector('#err .form-error');
   await shot(p, '37-desktop-staff-schedule');
-  await p.click('#sc button.btn'); await p.waitForTimeout(500);
+  await p.fill('#st', '19:00'); await p.fill('#en', '20:20'); await p.click('#sc button.btn'); await p.waitForTimeout(600);
   await p.close(); await desk.close();
   await browser.close();
   if (errors.length) { console.error('Ошибки в браузере:\n' + errors.join('\n')); process.exit(1); }

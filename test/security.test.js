@@ -183,6 +183,22 @@ test('шкала оценок: проценты и ECTS', () => {
   assert.equal(A.pairsFor('2УП-05')[3][0], '12:10'); assert.equal(A.pairsFor('3МЭО-01')[3][0], '12:55');
 });
 
+test('деканат ставит пару в любое время, пересечение с парами отклоняется', async () => {
+  const staff = await login('dekanat');
+  const A = require('../server/academic');
+  let d = new Date(); let day;
+  for (let i = 0; i < 7; i++) { day = (await call(`/api/staff/schedule?group=2УП-05&date=${A.isoDate(d)}`, { cookie: staff })).json; if (day.lessons.length >= 2) break; d = A.addDays(d, 1); }
+  const [l1, l2] = day.lessons;
+  const body = { type: 'extra', group: '2УП-05', date: day.date, subject: 'Консультация', kind: 'Консультация', room: '4138 (Корпус МО)' };
+  const clash = await call('/api/staff/schedule-changes', { method: 'POST', cookie: staff, body: { ...body, start: l1.start, end: l2.end } });
+  assert.equal(clash.status, 409); assert.equal(clash.json.conflicts.length, 2);
+  const ok = await call('/api/staff/schedule-changes', { method: 'POST', cookie: staff, body: { ...body, start: '20:00', end: '21:00' } });
+  assert.equal(ok.status, 201);
+  const anna = await login('anna');
+  const sched = (await call(`/api/schedule?from=${day.date}&days=1`, { cookie: anna })).json.days[0];
+  assert.ok(sched.lessons.some((l) => l.start === '20:00' && l.change?.type === 'extra'));
+});
+
 test('выход завершает сессию', async () => {
   const c = await login('nika');
   await call('/api/auth/logout', { method: 'POST', cookie: c });

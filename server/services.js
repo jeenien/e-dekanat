@@ -32,7 +32,8 @@ function daySchedule(db, group, dateStr, userId = null) {
   }));
   for (const c of changes) {
     if (c.type === 'extra' && c.date === dateStr) {
-      lessons.push({ pair: c.pair, start: P[c.pair][0], end: P[c.pair][1], subject: c.subject, kind: c.kind || 'Занятие', room: c.new_room || '—', teacher: c.new_teacher || '—', online: false, change: { type: 'extra', note: c.note } });
+      const st = c.start_time || P[c.pair][0], en = c.end_time || P[c.pair][1];
+      lessons.push({ pair: c.start_time ? 0 : c.pair, start: st, end: en, subject: c.subject, kind: c.kind || 'Занятие', room: c.new_room || '—', teacher: c.new_teacher || '', online: false, change: { type: 'extra', note: c.note } });
       continue;
     }
     if (c.type === 'move' && c.new_date === dateStr && c.date !== dateStr) {
@@ -52,7 +53,7 @@ function daySchedule(db, group, dateStr, userId = null) {
       lessons.push({ pair: r.pair, start: P[r.pair][0], end: P[r.pair][1], subject: r.discipline, kind: 'Пересдача', room: r.room, teacher: r.examiner, online: false, change: { type: 'retake', note: `Попытка ${r.attempt}` } });
     }
   }
-  lessons.sort((a, b) => a.pair - b.pair);
+  lessons.sort((a, b) => a.start.localeCompare(b.start));
   return { date: dateStr, weekday: wd, week: number, parity, lessons };
 }
 
@@ -88,11 +89,11 @@ function disciplineProgress(d, items, attendancePct) {
   const need = Math.max(0, threshold - projected);
   let status, label;
   if (isExam) {
-    if (projected >= threshold) { status = projected - threshold < 8 ? 'watch' : 'ok'; label = done.length === srez.length ? 'Допуск к экзамену есть' : 'Допуск по прогнозу'; }
+    if (projected >= threshold) { status = projected - threshold < 8 ? 'watch' : 'ok'; label = 'Допуск к экзамену'; }
     else { status = 'risk'; label = `Для допуска нужно еще ${need} б.`; }
   } else if (projected >= threshold) {
     status = projected - threshold < 6 ? 'watch' : 'ok';
-    label = d.control === 'diff_credit' ? `Автомат: «${A.markFor(projected).mark}», ${A.markFor(projected).ects}` : 'Зачет автоматом по прогнозу';
+    label = d.control === 'diff_credit' ? `Автомат: «${A.markFor(projected).mark}», ${A.markFor(projected).ects}` : 'Зачет автоматом';
   } else { status = projected >= A.RULES.creditPass ? 'watch' : 'risk'; label = `Выход на зачет · до автомата ${need} б.`; }
 
   // Сколько нужно набрать на экзамене (из 100) для каждой оценки

@@ -83,7 +83,7 @@ function createApi(db, auth) {
     for (const d of days) for (const l of d.lessons) {
       if (l.change?.type === 'cancel') continue;
       const ymd = d.date.replace(/-/g, '');
-      lines.push('BEGIN:VEVENT', `UID:${ymd}-${l.pair}-${st.group}@orbita`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`,
+      lines.push('BEGIN:VEVENT', `UID:${ymd}-${l.start.replace(':', '')}-${st.group}@orbita`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`,
         `DTSTART;TZID=Europe/Moscow:${ymd}T${l.start.replace(':', '')}00`, `DTEND;TZID=Europe/Moscow:${ymd}T${l.end.replace(':', '')}00`,
         `SUMMARY:${esc(`${l.subject} · ${l.kind}`)}`, `LOCATION:${esc(l.room)}`, ...(l.teacher ? [`DESCRIPTION:${esc(l.teacher)}`] : []), 'END:VEVENT');
     }
@@ -262,8 +262,32 @@ function createApi(db, auth) {
     const { group, date, pair, type, new_room, note } = req.body || {};
     const p = Number(pair);
     if (!db.prepare('SELECT 1 FROM students WHERE group_name = ?').get(group)) return res.status(400).json({ error: 'Неизвестная группа' });
+    // Новая пара в любое время: проверяем, что она не накладывается на занятия группы
+    if (type === 'extra') {
+      const { start, end, subject, kind, room } = req.body;
+      const tm = /^([01]\d|2[0-3]):[0-5]\d$/;
+      if (!A.parseDate(date)) return res.status(400).json({ error: 'Укажите дату' });
+      if (!tm.test(String(start)) || !tm.test(String(end)) || start >= end) return res.status(400).json({ error: 'Укажите время начала и окончания (окончание позже начала)' });
+      if (start < '07:00' || end > '22:30') return res.status(400).json({ error: 'Занятия можно ставить с 07:00 до 22:30' });
+      if (typeof subject !== 'string' || !subject.trim() || subject.length > 150) return res.status(400).json({ error: 'Укажите дисциплину' });
+      if (typeof room !== 'string' || !room.trim() || room.length > 40) return res.status(400).json({ error: 'Укажите аудиторию' });
+      const day = S.daySchedule(db, group, date);
+      const clash = day.lessons.filter((l) => l.change?.type !== 'cancel' && start < l.end && l.start < end);
+      if (clash.length) {
+        const list = clash.map((l) => `${l.pair ? l.pair + '-я пара' : 'занятие'} ${l.start}–${l.end} «${l.subject}»`).join(' и ');
+        return res.status(409).json({ error: `Время пересекается: ${list}. Выберите другое время или сначала отмените ${clash.length > 1 ? 'эти пары' : 'эту пару'}.`, conflicts: clash.map((l) => ({ pair: l.pair, start: l.start, end: l.end, subject: l.subject })) });
+      }
+      const k = ['Лекция', 'Семинар', 'Консультация'].includes(kind) ? kind : 'Семинар';
+      db.prepare("INSERT INTO schedule_changes (group_name, date, pair, type, subject, kind, new_room, note, start_time, end_time) VALUES (?,?,0,'extra',?,?,?,?,?,?)")
+        .run(group, date, subject.trim(), k, room.trim(), String(note || '').slice(0, 200) || null, start, end);
+      const dd = date.split('-').reverse().join('.');
+      db.prepare("INSERT INTO notifications (audience, category, title, body, link, important, author, created_at) VALUES (?, 'schedule', ?, ?, ?, 1, ?, ?)")
+        .run(`group:${group}`, `Новое занятие: ${subject.trim()}`, `${dd}, ${start}–${end}, аудитория ${room.trim()} (${k.toLowerCase()}).${note ? ' ' + String(note).slice(0, 200) : ''}`, `#/schedule/${date}`, STAFF_NAME(req.user), nowIso());
+      auth.audit(req.user.id, 'staff_schedule', `${group}:${date}:${start}:extra`, req.ip);
+      return res.status(201).json({ ok: true });
+    }
     if (!A.parseDate(date) || !A.PAIRS[p]) return res.status(400).json({ error: 'Укажите дату и номер пары' });
-    if (!['cancel', 'room'].includes(type)) return res.status(400).json({ error: 'Тип: отмена или смена аудитории' });
+    if (!['cancel', 'room'].includes(type)) return res.status(400).json({ error: 'Тип: отмена, смена аудитории или новая пара' });
     if (type === 'room' && (typeof new_room !== 'string' || !new_room.trim() || new_room.length > 30)) return res.status(400).json({ error: 'Укажите новую аудиторию' });
     const day = S.daySchedule(db, group, date);
     const lesson = day.lessons.find((l) => l.pair === p);

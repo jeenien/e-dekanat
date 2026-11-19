@@ -37,7 +37,7 @@ function buildContext(db, userId, today) {
   return { st, g, todayS, tomorrow, week, deadlines, requests, retakes, abs };
 }
 
-const fmtLesson = (l) => `${l.pair} пара ${l.start}–${l.end}: ${l.subject} (${l.kind.toLowerCase()}), ${l.room}${l.teacher ? ', ' + l.teacher : ''}${l.change ? ` [изменение: ${l.change.type === 'cancel' ? 'ОТМЕНА' : l.change.type === 'room' ? 'новая аудитория, было ' + l.change.old_room : l.change.type === 'teacher' ? 'замена преподавателя' : l.change.type === 'extra' ? 'дополнительное занятие' : 'перенос'}]` : ''}`;
+const fmtLesson = (l) => `${l.pair ? l.pair + ' пара ' : ''}${l.start}–${l.end}: ${l.subject} (${l.kind.toLowerCase()}), ${l.room}${l.teacher ? ', ' + l.teacher : ''}${l.change ? ` [изменение: ${l.change.type === 'cancel' ? 'ОТМЕНА' : l.change.type === 'room' ? 'новая аудитория, было ' + l.change.old_room : l.change.type === 'teacher' ? 'замена преподавателя' : l.change.type === 'extra' ? 'дополнительное занятие' : 'перенос'}]` : ''}`;
 const ruDay = (iso) => new Date(iso).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
 
 // Сводка для модели: БЕЗ ФИО, контактов, номера зачетки — только то, что нужно для ответа

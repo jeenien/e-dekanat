@@ -563,3 +563,12 @@ body::after { width: 40vmax; height: 40vmax; right: -10vmax; bottom: -12vmax; ba
 .week-strip .dots i.rt { background: var(--bad); }
 .banner-retake { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
 .banner-retake .ico { color: var(--bad); }
+
+/* Выравнивание: заголовок страницы и подзаголовки разделов по левому краю блоков */
+@media (min-width: 960px) {
+  .topbar { padding-left: calc(32px + max(0px, (100% - 1120px) / 2)); padding-right: calc(32px + max(0px, (100% - 1120px) / 2)); }
+}
+.section-title { margin: 18px 0 8px; }
+.hello { padding: 4px 0 6px; }
+.rule-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.rule-row .lbl { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); min-width: 70px; }
