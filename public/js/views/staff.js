@@ -129,14 +129,14 @@ export async function renderStudents(ctx) {
   ctx.setTitle('Студенты');
   const list = await api('/staff/students');
   if (!ctx.isCurrent()) return;
-  const LVL = { ok: ['ok', 'в норме'], near: ['warn', 'близко к лимиту'], warning: ['bad', 'риск отчисления'], expulsion: ['bad', 'лимит исчерпан'] };
+  const LVL = { ok: ['', ''], near: ['warn', 'близко к лимиту'], warning: ['bad', 'риск отчисления'], expulsion: ['bad', 'лимит исчерпан'] };
   ctx.el.innerHTML = `<div class="page stack">
     <input class="input" id="sq" placeholder="Поиск: ФИО или группа" style="max-width:360px">
     <section class="card pad-0"><div class="table-wrap"><table class="table resp"><thead><tr><th>Студент</th><th>Сейчас</th><th>В университете за 7 дней</th><th>Пропуски</th></tr></thead><tbody>
     ${list.map((s) => `<tr class="click" tabindex="0" data-id="${s.id}" data-q="${esc(`${s.name} ${s.group}`.toLowerCase())}"><td><b>${esc(s.name)}</b><div class="xs faint">${esc(s.group)} · ${s.course} курс</div></td>
       <td>${s.today_in ? `<span class="chip ${s.inside ? 'ok' : ''}">вход в ${esc(s.today_in)}</span>${!s.inside && s.today_out ? ` <span class="chip">выход в ${esc(s.today_out)}</span>` : ''}` : '<span class="chip">не приходил(а)</span>'}</td>
       <td><b>${hmin(s.week_minutes)}</b> <span class="xs faint">· ${s.week_days} ${plural(s.week_days, 'день', 'дня', 'дней')}</span></td>
-      <td><b>${s.absence_hours} ч</b> <span class="chip ${LVL[s.absence_level][0]}">${LVL[s.absence_level][1]}</span></td></tr>`).join('')}
+      <td><b>${s.absence_hours} ак. ч.</b> ${LVL[s.absence_level][1] ? `<span class="chip ${LVL[s.absence_level][0]}">${LVL[s.absence_level][1]}</span>` : ''}</td></tr>`).join('')}
     </tbody></table></div></section></div>`;
   ctx.el.querySelectorAll('tr[data-id]').forEach((tr) => {
     const go = () => { location.hash = `#/staff/students/${tr.dataset.id}`; };
@@ -154,11 +154,11 @@ export async function renderStudent(ctx) {
   ctx.el.innerHTML = `<div class="page stack">
     <div class="small muted">${esc(d.student.group)} · ${d.student.course} курс</div>
     <div class="grid c2" style="align-items:start">
-      <section class="card"><div class="card-h"><h2>Пропуски</h2><span class="chip">${a.hours} ак. ч из ${absenceText(a).limit} ак. ч</span></div>${absenceMeter(a)}
+      <section class="card"><div class="card-h"><h2>Пропуски</h2><span class="chip">${a.hours} ак. ч. из ${absenceText(a).limit} ак. ч.</span></div>${absenceMeter(a)}
         <details class="more"><summary>${icon('chevronRight', 'sm')} Список (${a.list.length})</summary>${absenceList(a.list)}</details></section>
       <section class="card"><div class="card-h"><h2>В университете за неделю</h2><span class="chip">${hmin(c.week_minutes)}</span></div>${campusBars(c.days)}</section>
     </div>
-    <section class="card"><div class="card-h"><h2>Проходы СКУД за 2 недели</h2></div>${passDays(c.days)}</section>
+    <section class="card"><div class="card-h"><h2>Проходы СКУД за неделю</h2></div>${passDays(c.days)}</section>
     <form class="card" id="rt" novalidate><h2 style="font-size:17px;margin-bottom:10px">Назначить пересдачу</h2>
       ${d.retakes.length ? `<div class="small muted" style="margin-bottom:10px">Уже назначено: ${d.retakes.map((r) => `${esc(r.discipline)} — ${fmt.dmShort(parseISO(r.date))}, ${r.start}`).join('; ')}</div>` : ''}
       <div class="grid c2" style="gap:0 12px">

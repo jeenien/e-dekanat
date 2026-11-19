@@ -47,7 +47,7 @@ export const fmt = {
     return rel ? `${rel}, ${fmt.dm(d)}` : `${WDF[d.getDay()][0].toUpperCase() + WDF[d.getDay()].slice(1)}, ${fmt.dm(d)}`;
   },
   time: (iso) => new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-  dateTime: (iso) => new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
+  dateTime: (iso) => { const d = new Date(iso); return `${d.getDate()} ${MON[d.getMonth()]} ${pad(d.getHours())}:${pad(d.getMinutes())}`; },
   ago(iso) {
     const s = (Date.now() - new Date(iso)) / 1000;
     if (s < 60) return 'только что'; if (s < 3600) return `${Math.floor(s / 60)} мин назад`;

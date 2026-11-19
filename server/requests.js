@@ -109,7 +109,7 @@ function createRequest(db, user, type, body) {
   const pid = publicId('Z');
   const docCode = instant && t.document ? publicId('D') : null;
   let title = t.title;
-  if (type === 'appointment') title = `Прием в деканате · ${clean.slot.slice(8, 10)}.${clean.slot.slice(5, 7)} в ${clean.slot.slice(11)}`;
+  if (type === 'appointment') title = `Прием в деканате · ${clean.slot.slice(8, 10)}.${clean.slot.slice(5, 7)} ${clean.slot.slice(11)}`;
   const r = db.prepare('INSERT INTO requests (public_id, student_id, type, title, payload, status, created_at, updated_at, eta, doc_code) VALUES (?,?,?,?,?,?,?,?,?,?)')
     .run(pid, user.id, type, title, JSON.stringify(clean), status, now, now, instant ? null : addDaysWorking(Math.max(1, t.sla_days)), docCode);
   const ev = db.prepare('INSERT INTO request_events (request_id, kind, status, author_role, author_name, text, created_at) VALUES (?,?,?,?,?,?,?)');

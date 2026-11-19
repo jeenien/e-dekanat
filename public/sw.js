@@ -1,6 +1,6 @@
 // Сервис-воркер: кэширует оболочку приложения, чтобы кабинет открывался мгновенно
 // и показывал понятное сообщение без сети. Данные API НЕ кэшируются (персональные).
-const CACHE = 'orbita-shell-v6';
+const CACHE = 'orbita-shell-v7';
 const SHELL = ['/', '/app.css', '/js/boot.js', '/logo.svg', '/js/app.js', '/js/lib.js', '/js/icons.js',
   '/js/views/today.js', '/js/views/schedule.js', '/js/views/grades.js', '/js/views/requests.js',
   '/js/views/notifications.js', '/js/views/profile.js', '/js/views/staff.js', '/js/views/assistant.js', '/js/views/palette.js', '/js/views/campus.js'];
