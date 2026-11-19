@@ -7,6 +7,7 @@ const { seed } = require('./seed');
 const { createAuth } = require('./auth');
 const { createApi } = require('./api');
 const D = require('./documents');
+const { createLite } = require('./lite');
 
 function createApp(db) {
   const app = express();
@@ -37,6 +38,7 @@ function createApp(db) {
   });
   app.use('/api', createApi(db, auth));
 
+  app.use('/lite', createLite(db, auth));
   app.get('/verify/:code', (req, res) => res.type('html').send(D.renderVerify(db, String(req.params.code).toUpperCase())));
   app.get('/healthz', (req, res) => res.json({ ok: true }));
 

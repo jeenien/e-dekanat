@@ -87,6 +87,13 @@ fs.mkdirSync(OUT, { recursive: true });
   await p.goto(BASE + '/#/grades/record'); await p.waitForTimeout(400); await shot(p, '21-mobile-nika-empty-record');
   await p.goto(BASE + '/#/requests'); await p.waitForTimeout(400); await shot(p, '22-mobile-nika-empty-requests');
   await p.close();
+
+  // Облегченная версия (без JS)
+  p = await phone.newPage(); watch(p, 'lite');
+  await p.context().clearCookies();
+  await p.goto(BASE + '/lite'); await p.fill('input[name=login]', 'anna'); await p.fill('input[name=password]', 'Orbita-Anna-2026');
+  await p.click('form.box button'); await p.waitForSelector('h2'); await shot(p, '23-mobile-lite', true);
+  await p.close();
   await phone.close();
 
   // ---------- Компьютер ----------

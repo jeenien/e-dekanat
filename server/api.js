@@ -85,7 +85,7 @@ function createApi(db, auth) {
       const ymd = d.date.replace(/-/g, '');
       lines.push('BEGIN:VEVENT', `UID:${ymd}-${l.pair}-${st.group}@orbita`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`,
         `DTSTART;TZID=Europe/Moscow:${ymd}T${l.start.replace(':', '')}00`, `DTEND;TZID=Europe/Moscow:${ymd}T${l.end.replace(':', '')}00`,
-        `SUMMARY:${esc(`${l.subject} · ${l.kind}`)}`, `LOCATION:${esc(l.room)}`, `DESCRIPTION:${esc(l.teacher)}`, 'END:VEVENT');
+        `SUMMARY:${esc(`${l.subject} · ${l.kind}`)}`, `LOCATION:${esc(l.room)}`, ...(l.teacher ? [`DESCRIPTION:${esc(l.teacher)}`] : []), 'END:VEVENT');
     }
     lines.push('END:VCALENDAR');
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');

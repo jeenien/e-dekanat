@@ -158,6 +158,31 @@ test('услуги: обычной пересдачи нет, есть рект�
   assert.ok(!types.includes('retake')); assert.ok(types.includes('rector_retake'));
 });
 
+test('облегченная версия: вход формой, только свои данные, защита форм', async () => {
+  const form = (body, headers = {}) => fetch(base + '/lite/login', { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...headers }, body: new URLSearchParams(body) });
+  const evil = await form({ login: 'anna', password: pwd('anna') }, { Origin: 'https://evil.example' });
+  assert.equal(evil.status, 403);
+  const bad = await form({ login: 'anna', password: 'nope' });
+  assert.equal(bad.status, 401);
+  const ok = await form({ login: 'anna', password: pwd('anna') });
+  assert.equal(ok.status, 303);
+  const cookie = ok.headers.get('set-cookie').split(';')[0];
+  const home = await call('/lite', { cookie });
+  assert.match(home.text, /Здравствуйте, Анна/);
+  assert.ok(!/<script/i.test(home.text), 'без скриптов');
+  const timur = await login('timur');
+  const foreign = (await call('/api/requests', { cookie: timur })).json[0].id;
+  assert.equal((await call(`/lite/requests/${foreign}`, { cookie })).status, 404);
+  assert.match((await call('/lite')).text, /Вход/);
+});
+
+test('шкала оценок: проценты и ECTS', () => {
+  const A = require('../server/academic');
+  assert.deepEqual([95, 85, 78, 70, 62, 40].map((p) => A.markFor(p).ects), ['A', 'B', 'C', 'D', 'E', 'F']);
+  assert.equal(A.markFor(82).mark, 'хорошо'); assert.equal(A.markFor(67).mark, 'удовлетворительно'); assert.equal(A.markFor(59).mark, 'неудовлетворительно');
+  assert.equal(A.pairsFor('2УП-05')[3][0], '12:10'); assert.equal(A.pairsFor('3МЭО-01')[3][0], '12:55');
+});
+
 test('выход завершает сессию', async () => {
   const c = await login('nika');
   await call('/api/auth/logout', { method: 'POST', cookie: c });

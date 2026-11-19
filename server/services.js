@@ -22,20 +22,21 @@ function daySchedule(db, group, dateStr, userId = null) {
   if (!date) return null;
   const wd = A.weekday(date);
   const { parity, number } = A.weekInfo(date);
+  const P = A.pairsFor(group);
   const base = db.prepare("SELECT * FROM lessons WHERE group_name = ? AND weekday = ? AND week IN ('all', ?) ORDER BY pair").all(group, wd, parity);
   const changes = db.prepare('SELECT * FROM schedule_changes WHERE group_name = ? AND (date = ? OR new_date = ?)').all(group, dateStr, dateStr);
 
   const lessons = base.map((l) => ({
-    pair: l.pair, start: A.PAIRS[l.pair][0], end: A.PAIRS[l.pair][1],
+    pair: l.pair, start: P[l.pair][0], end: P[l.pair][1],
     subject: l.subject, kind: l.kind, room: l.room, teacher: l.teacher, online: l.room === 'Онлайн', online_url: l.online_url, change: null,
   }));
   for (const c of changes) {
     if (c.type === 'extra' && c.date === dateStr) {
-      lessons.push({ pair: c.pair, start: A.PAIRS[c.pair][0], end: A.PAIRS[c.pair][1], subject: c.subject, kind: c.kind || 'Занятие', room: c.new_room || '—', teacher: c.new_teacher || '—', online: false, change: { type: 'extra', note: c.note } });
+      lessons.push({ pair: c.pair, start: P[c.pair][0], end: P[c.pair][1], subject: c.subject, kind: c.kind || 'Занятие', room: c.new_room || '—', teacher: c.new_teacher || '—', online: false, change: { type: 'extra', note: c.note } });
       continue;
     }
     if (c.type === 'move' && c.new_date === dateStr && c.date !== dateStr) {
-      lessons.push({ pair: c.new_pair, start: A.PAIRS[c.new_pair][0], end: A.PAIRS[c.new_pair][1], subject: c.subject, kind: c.kind || 'Занятие', room: c.new_room || '—', teacher: c.new_teacher || '—', online: false, change: { type: 'moved_in', note: c.note, from: c.date } });
+      lessons.push({ pair: c.new_pair, start: P[c.new_pair][0], end: P[c.new_pair][1], subject: c.subject, kind: c.kind || 'Занятие', room: c.new_room || '—', teacher: c.new_teacher || '—', online: false, change: { type: 'moved_in', note: c.note, from: c.date } });
       continue;
     }
     const l = lessons.find((x) => x.pair === c.pair && c.date === dateStr);
@@ -48,7 +49,7 @@ function daySchedule(db, group, dateStr, userId = null) {
   // Личные пересдачи студента (их назначают деканат и кафедра)
   if (userId) {
     for (const r of db.prepare('SELECT * FROM retakes WHERE student_id = ? AND date = ?').all(userId, dateStr)) {
-      lessons.push({ pair: r.pair, start: A.PAIRS[r.pair][0], end: A.PAIRS[r.pair][1], subject: r.discipline, kind: 'Пересдача', room: r.room, teacher: r.examiner, online: false, change: { type: 'retake', note: `Попытка ${r.attempt}` } });
+      lessons.push({ pair: r.pair, start: P[r.pair][0], end: P[r.pair][1], subject: r.discipline, kind: 'Пересдача', room: r.room, teacher: r.examiner, online: false, change: { type: 'retake', note: `Попытка ${r.attempt}` } });
     }
   }
   lessons.sort((a, b) => a.pair - b.pair);
@@ -77,7 +78,7 @@ function disciplineProgress(d, items) {
   const threshold = isExam ? A.RULES.examAdmission : A.RULES.creditPass;
   const need = Math.max(0, threshold - earned);
   let status, label;
-  if (d.control === 'diff_credit' && projected >= threshold) { status = projected - threshold < 8 ? 'watch' : 'ok'; label = `Прогноз: «${A.markFor(projected).mark}» (≈${projected} б.)`; }
+  if (d.control === 'diff_credit' && projected >= threshold) { status = projected - threshold < 8 ? 'watch' : 'ok'; label = `Прогноз: «${A.markFor(projected).mark}», ${A.markFor(projected).ects} (≈${projected} б.)`; }
   else if (earned >= threshold) { status = 'ok'; label = isExam ? 'Допуск к экзамену есть' : 'Зачет автоматом'; }
   else if (need > remaining) { status = 'risk'; label = 'Баллов недостаточно'; }
   else if (projected < threshold) { status = 'risk'; label = `Нужно еще ${need} б.`; }
@@ -88,7 +89,7 @@ function disciplineProgress(d, items) {
   let examTargets = null;
   if (isExam) {
     const semFinal = Math.min(A.RULES.examSemesterMax, projected);
-    examTargets = A.SCALE.slice(0, 3).map((s) => ({ mark: s.mark, need: Math.max(0, s.min - semFinal), possible: s.min - semFinal <= 40 }));
+    examTargets = A.MARK_MIN.map(([mark, min]) => ({ mark, need: Math.max(0, min - semFinal), possible: min - semFinal <= 40 }));
   }
   return {
     id: d.id, name: d.name, teacher: d.teacher, control: d.control, control_label: CONTROL_LABEL[d.control], credits: d.credits,
@@ -107,7 +108,7 @@ function gradesOverview(db, userId) {
   const finals = db.prepare(`SELECT f.*, d.name, d.semester, d.control, d.credits FROM final_grades f JOIN disciplines d ON d.id = f.discipline_id
     WHERE f.student_id = ? ORDER BY d.semester, d.id`).all(userId);
   const semesters = {};
-  for (const f of finals) (semesters[f.semester] ||= []).push({ name: f.name, control: f.control, control_label: CONTROL_LABEL[f.control], credits: f.credits, mark: f.mark, points: f.points, date: f.date });
+  for (const f of finals) (semesters[f.semester] ||= []).push({ name: f.name, control: f.control, control_label: CONTROL_LABEL[f.control], credits: f.credits, mark: f.mark, points: f.points, ects: A.ectsFor(f.points), date: f.date });
   const graded = finals.filter((f) => A.MARK_VALUE[f.mark]);
   const gpa = graded.length ? Math.round((graded.reduce((s, f) => s + A.MARK_VALUE[f.mark], 0) / graded.length) * 100) / 100 : null;
   const debts = finals.filter((f) => f.mark === 'неудовлетворительно' || f.mark === 'не зачтено').map((f) => ({ name: f.name, semester: f.semester, control_label: CONTROL_LABEL[f.control] }));

@@ -16,7 +16,7 @@ function nowCard(today, nextDays) {
   if (cur) {
     const p = Math.round((nowM - minutes(cur.start)) / (minutes(cur.end) - minutes(cur.start)) * 100);
     return `<div class="card now-card"><div class="row between"><span class="lbl">Идет сейчас · ${cur.pair} пара</span><span class="chip">до ${cur.end}</span></div>
-      <h3>${esc(cur.subject)}</h3><div class="meta"><span>${icon('map', 'sm')} ${esc(cur.room)}</span><span>${icon('teacher', 'sm')} ${esc(cur.teacher)}</span></div>
+      <h3>${esc(cur.subject)}</h3><div class="meta"><span>${icon('map', 'sm')} ${esc(cur.room)}</span>${cur.teacher ? `<span>${icon('teacher', 'sm')} ${esc(cur.teacher)}</span>` : ''}</div>
       <div class="bar" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100"><i style="width:${p}%"></i></div>
       ${next ? `<p class="small" style="margin-top:10px;opacity:.9">Дальше: ${esc(next.subject)} в ${next.start}, ${esc(next.room)}</p>` : ''}</div>`;
   }
@@ -24,7 +24,7 @@ function nowCard(today, nextDays) {
     const mins = minutes(next.start) - nowM;
     const when = mins < 60 ? `через ${mins} мин` : `в ${next.start}`;
     return `<div class="card now-card"><div class="row between"><span class="lbl">Следующая пара · ${when}</span>${next.change ? `<span class="chip">${icon('alert', 'sm')} ${esc(changeLabel(next.change))}</span>` : ''}</div>
-      <h3>${esc(next.subject)}</h3><div class="meta"><span>${icon('clock', 'sm')} ${next.start}–${next.end}</span><span>${icon('map', 'sm')} ${esc(next.room)}</span><span>${icon('teacher', 'sm')} ${esc(next.teacher)}</span></div>
+      <h3>${esc(next.subject)}</h3><div class="meta"><span>${icon('clock', 'sm')} ${next.start}–${next.end}</span><span>${icon('map', 'sm')} ${esc(next.room)}</span>${next.teacher ? `<span>${icon('teacher', 'sm')} ${esc(next.teacher)}</span>` : ''}</div>
       ${next.online_url ? `<p style="margin-top:12px"><a class="btn sm ghost" href="${esc(next.online_url)}" target="_blank" rel="noopener">${icon('monitor', 'sm')} Подключиться онлайн</a></p>` : ''}</div>`;
   }
   const nd = nextDays.find((d) => d.lessons.some((l) => l.change?.type !== 'cancel'));

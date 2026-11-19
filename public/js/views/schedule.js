@@ -23,7 +23,7 @@ export function lessonHtml(l, date) {
   return `<div class="lesson ${kindClass(l.kind)} ${l.change?.type === 'cancel' ? 'cancel' : ''} ${now ? 'now' : ''} ${past ? 'past' : ''}">
     <div class="time">${l.start}<small>${l.end}</small></div>
     <div class="body"><div class="row between" style="align-items:flex-start;gap:8px"><div class="subj">${esc(l.subject)}</div>${now ? '<span class="chip brand">сейчас</span>' : ''}</div>
-      <div class="info"><span>${esc(l.kind)}</span><span>${icon(l.online ? 'monitor' : 'map', 'sm')} ${l.change?.type === 'room' ? `<s class="old">${esc(l.change.old_room)}</s>&nbsp;<b>${esc(l.room)}</b>` : esc(l.room)}</span><span>${icon('teacher', 'sm')} ${esc(l.teacher)}</span></div>
+      <div class="info"><span>${esc(l.kind)}</span><span>${icon(l.online ? 'monitor' : 'map', 'sm')} ${l.change?.type === 'room' ? `<s class="old">${esc(l.change.old_room)}</s>&nbsp;<b>${esc(l.room)}</b>` : esc(l.room)}</span>${l.teacher ? `<span>${icon('teacher', 'sm')} ${esc(l.teacher)}</span>` : ''}</div>
       ${changeNote(l)}
       ${l.online_url && l.change?.type !== 'cancel' ? `<a class="link small" href="${esc(l.online_url)}" target="_blank" rel="noopener" style="margin-top:6px">${icon('ext', 'sm')} Ссылка на онлайн-занятие</a>` : ''}
     </div></div>`;
@@ -75,10 +75,10 @@ export async function render(ctx) {
       const dd = parseISO(d.date);
       return `<div class="col ${d.date === todayISO() ? 'today' : ''}"><h3>${fmt.wd(dd).toUpperCase()} <small>${fmt.dmShort(dd)}</small></h3>
         ${d.lessons.length ? d.lessons.map((l) => `<div class="wl ${kindClass(l.kind)} ${l.change?.type === 'cancel' ? 'cancel' : l.change ? 'changed' : ''}" title="${esc(l.change ? changeLabel(l.change) : '')}">
-          <div class="faint">${l.pair} · ${l.start}–${l.end}</div><b>${esc(l.subject)}</b><div class="faint">${esc(l.kind)} · ${esc(l.room)}</div><div class="faint">${esc(l.teacher)}</div>
+          <div class="faint">${l.pair} · ${l.start}–${l.end}</div><b>${esc(l.subject)}</b><div class="faint">${esc(l.kind)} · ${esc(l.room)}</div>${l.teacher ? `<div class="faint">${esc(l.teacher)}</div>` : ''}
           ${l.change ? `<div class="xs" style="color:${l.change.type === 'cancel' ? 'var(--bad)' : 'var(--warn)'};font-weight:800;margin-top:2px">${esc(changeLabel(l.change))}</div>` : ''}</div>`).join('') : '<div class="faint small" style="padding:8px 2px">Пар нет</div>'}</div>`;
     }).join('')}</div>
-    <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>практика</span><span><i class="sw lab"></i>лабораторная</span><span><i class="sw oth"></i>другое</span><span><i class="sw" style="background:var(--warn)"></i>пересдача / изменение</span></div>
+    <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>семинар</span><span><i class="sw oth"></i>консультация</span><span><i class="sw" style="background:var(--warn)"></i>пересдача / изменение</span></div>
   </div>`;
   ctx.el.querySelectorAll('.week-strip [data-date]').forEach((b) => b.onclick = () => { history.replaceState(null, '', `#/schedule/${b.dataset.date}`); ctx.params.date = b.dataset.date; render(ctx); });
 }

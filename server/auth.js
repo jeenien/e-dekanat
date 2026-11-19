@@ -80,21 +80,20 @@ function createAuth(db) {
     next();
   };
 
-  function login(req, res) {
-    const { login, password } = req.body || {};
+  // Общая проверка входа для основного кабинета и облегченной версии
+  function authenticate(req, res, login, password) {
     if (typeof login !== 'string' || typeof password !== 'string' || !login || !password || login.length > 64 || password.length > 128) {
-      return res.status(400).json({ error: 'Введите логин и пароль' });
+      return { status: 400, error: 'Введите логин и пароль' };
     }
     const key = loginKey(req.ip, login);
     const wait = isLocked(key);
-    if (wait) return res.status(429).json({ error: `Слишком много попыток. Попробуйте через ${Math.ceil(wait / 60)} мин.` });
-
+    if (wait) return { status: 429, error: `Слишком много попыток. Попробуйте через ${Math.ceil(wait / 60)} мин.` };
     const user = q.userByLogin.get(login.trim().toLowerCase());
     const ok = verifyPassword(password, user ? user.password_hash : DUMMY_HASH) && Boolean(user);
     if (!ok) {
       registerFail(key);
       audit(user?.id, 'login_failed', null, req.ip);
-      return res.status(401).json({ error: 'Неверный логин или пароль' });
+      return { status: 401, error: 'Неверный логин или пароль' };
     }
     attempts.delete(key);
     q.cleanup.run(Date.now());
@@ -103,7 +102,19 @@ function createAuth(db) {
     q.insertSession.run(sha256(token), user.id, now, now, now + SESSION_TTL_MS, deviceLabel(req.headers['user-agent']));
     setCookie(res, token, SESSION_TTL_MS);
     audit(user.id, 'login', deviceLabel(req.headers['user-agent']), req.ip);
-    res.json({ ok: true, role: user.role });
+    return { status: 200, role: user.role };
+  }
+
+  function login(req, res) {
+    const { login: l, password } = req.body || {};
+    const r = authenticate(req, res, l, password);
+    if (r.status !== 200) return res.status(r.status).json({ error: r.error });
+    res.json({ ok: true, role: r.role });
+  }
+
+  function endSession(req, res) {
+    if (req.sessionHash) q.del.run(req.sessionHash);
+    setCookie(res, '', 0);
   }
 
   function logout(req, res) {
@@ -126,7 +137,7 @@ function createAuth(db) {
     res.json({ ok: true });
   }
 
-  return { loadSession, requireAuth, login, logout, changePassword, audit };
+  return { loadSession, requireAuth, login, logout, changePassword, audit, authenticate, endSession };
 }
 
 module.exports = { createAuth, COOKIE, parseCookies };

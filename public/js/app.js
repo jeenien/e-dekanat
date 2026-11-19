@@ -71,7 +71,7 @@ function renderLogin(message = '') {
       </form>
       <div class="demo"><div class="section-title" style="margin:0 4px">Демо-доступ для жюри — нажмите, чтобы заполнить</div>
         <div class="demo-grid">${DEMO.map((d) => `<button type="button" data-login="${d.login}"><b>${d.name}</b><small>${d.note}</small></button>`).join('')}</div></div>
-      <p class="login-note">Демонстрационный прототип · университет и все данные вымышлены</p>
+      <p class="login-note">Медленный интернет? <a href="/lite">Облегченная версия</a><br>Демонстрационный прототип · университет и все данные вымышлены</p>
     </main></div></div>`;
   const form = document.getElementById('login-form');
   document.getElementById('eye').onclick = (e) => {
@@ -129,6 +129,7 @@ function renderShell() {
         <a class="icon-btn back hide-desk" id="back" hidden aria-label="Назад">${icon('chevronLeft')}</a>
         <h1 id="page-title">Орбита</h1>
         <button class="icon-btn hide-desk" data-act="palette" aria-label="Поиск">${icon('search')}</button>
+        <a class="icon-btn" href="/lite" title="Облегченная версия" aria-label="Облегченная версия">${icon('lite')}</a>
         <button class="icon-btn hide-mob" data-act="theme" aria-label="Сменить тему">${icon('moon')}</button>
         <a class="icon-btn hide-desk" href="#/notifications" aria-label="Лента уведомлений">${icon('bell')}<span class="dot" hidden></span></a>
         ${u.role === 'student' ? `<a class="icon-btn hide-desk" href="#/profile" aria-label="Профиль">${icon('user')}</a>` : ''}
@@ -227,8 +228,9 @@ async function boot() {
     app.querySelector('[data-action="retry"]').onclick = boot;
     return;
   }
-  if (!state.user) return renderLogin();
+  if (!state.user) { window.orbitaReady?.(); return renderLogin(); }
   renderShell();
+  window.orbitaReady?.();
   route();
   refreshBadges();
 }

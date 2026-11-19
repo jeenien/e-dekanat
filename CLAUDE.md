@@ -13,7 +13,9 @@
 - `server/api.js` — все маршруты `/api/*`. `server/services.js` — расписание, баллы, уведомления.
 - `server/requests.js` + `server/catalog.js` — услуги деканата; схема формы задается в каталоге и используется и фронтом, и сервером.
 - `server/documents.js` — справки с QR и страница `/verify/:code`. `server/assistant.js` — помощник (Claude или локальные правила).
-- `server/seed.js` — демо-данные; даты считаются от «сегодня».
+- `server/seed.js` — демо-данные; даты считаются от «сегодня». `server/schedule-data.js` — расписание групп по открытым данным вуза (без ФИО преподавателей).
+- `server/lite.js` — облегченная версия `/lite` без JavaScript; права те же, что в API. `public/js/boot.js` предлагает ее при медленной загрузке.
+- Время пар и шкала оценок (проценты → 5-балльная → ECTS) — в `server/academic.js`.
 - `public/js/views/*.js` — экраны. `public/js/lib.js` — `esc()`, `icon()`, `api()`, даты, тосты, модальные окна.
 
 ## Непреложные правила
@@ -29,7 +31,7 @@
 
 ## Проверка перед коммитом
 ```bash
-npm test                 # 14 тестов: безопасность и ключевые сценарии
+npm test                 # 16 тестов: безопасность и ключевые сценарии
 npm run reset-db && npm start &   # затем:
 npm run screenshots      # сквозной прогон в браузере + скриншоты в docs/screenshots
 ```
