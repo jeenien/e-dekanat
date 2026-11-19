@@ -67,43 +67,74 @@ function rangeSchedule(db, group, fromStr, days, userId = null) {
 // ---------- Успеваемость ----------
 const CONTROL_LABEL = { exam: 'Экзамен', credit: 'Зачет', diff_credit: 'Дифф. зачет', coursework: 'Курсовая' };
 
-function disciplineProgress(d, items) {
-  const isExam = d.control === 'exam';
-  const semMax = items.reduce((s, i) => s + i.max_score, 0);
-  const earned = items.filter((i) => i.score != null).reduce((s, i) => s + i.score, 0);
-  const maxSoFar = items.filter((i) => i.score != null).reduce((s, i) => s + i.max_score, 0);
-  const remaining = semMax - maxSoFar;
-  const pace = maxSoFar ? earned / maxSoFar : 0.75;
-  const projected = Math.round(earned + pace * remaining);
-  const threshold = isExam ? A.RULES.examAdmission : A.RULES.creditPass;
-  const need = Math.max(0, threshold - earned);
-  let status, label;
-  if (d.control === 'diff_credit' && projected >= threshold) { status = projected - threshold < 8 ? 'watch' : 'ok'; label = `Прогноз: «${A.markFor(projected).mark}», ${A.markFor(projected).ects} (≈${projected} б.)`; }
-  else if (earned >= threshold) { status = 'ok'; label = isExam ? 'Допуск к экзамену есть' : 'Зачет автоматом'; }
-  else if (need > remaining) { status = 'risk'; label = 'Баллов недостаточно'; }
-  else if (projected < threshold) { status = 'risk'; label = `Нужно еще ${need} б.`; }
-  else if (projected - threshold < 8) { status = 'watch'; label = `Еще ${need} б. до ${isExam ? 'допуска' : 'зачета'}`; }
-  else { status = 'ok'; label = `Еще ${need} б. до ${isExam ? 'допуска' : 'зачета'} — вы в графике`; }
+// Рейтинг по дисциплине (0–100): взвешенное среднее
+//   срезы 1–3 — вес 1, посещаемость (% посещенных пар) — вес 0,5, работа на парах — вес 0,3.
+// Зачет: рейтинг от 70 — автомат, ниже — выход на зачет.
+// Экзамен: допуск при рейтинге от 50; итог = 60% рейтинга + 40% результата экзамена.
+const W = { srez: 1, attendance: 0.5, work: 0.3 };
+const weighted = (parts) => { const w = parts.reduce((x, p) => x + p.w, 0); return w ? Math.round(parts.reduce((x, p) => x + p.v * p.w, 0) / w) : 0; };
 
-  // Что нужно на экзамене для каждой оценки (при максимуме в семестре)
+function disciplineProgress(d, items, attendancePct) {
+  const isExam = d.control === 'exam';
+  const srez = items.filter((i) => /^Срез/.test(i.title));
+  const work = items.find((i) => i.title === 'Работа на парах');
+  const done = srez.filter((i) => i.score != null);
+  const known = [...done.map((i) => ({ v: i.score, w: W.srez })), { v: attendancePct, w: W.attendance }, ...(work?.score != null ? [{ v: work.score, w: W.work }] : [])];
+  const earned = weighted(known);
+  // Прогноз: будущие срезы — на уровне уже написанных
+  const avgSrez = done.length ? done.reduce((x, i) => x + i.score, 0) / done.length : (work?.score ?? 70);
+  const projected = weighted([...srez.map((i) => ({ v: i.score ?? avgSrez, w: W.srez })), { v: attendancePct, w: W.attendance }, ...(work?.score != null ? [{ v: work.score, w: W.work }] : [])]);
+  const threshold = isExam ? A.RULES.examAdmission : A.RULES.autoPass;
+  const need = Math.max(0, threshold - projected);
+  let status, label;
+  if (isExam) {
+    if (projected >= threshold) { status = projected - threshold < 8 ? 'watch' : 'ok'; label = done.length === srez.length ? 'Допуск к экзамену есть' : 'Допуск по прогнозу'; }
+    else { status = 'risk'; label = `Для допуска нужно еще ${need} б.`; }
+  } else if (projected >= threshold) {
+    status = projected - threshold < 6 ? 'watch' : 'ok';
+    label = d.control === 'diff_credit' ? `Автомат: «${A.markFor(projected).mark}», ${A.markFor(projected).ects}` : 'Зачет автоматом по прогнозу';
+  } else { status = projected >= A.RULES.creditPass ? 'watch' : 'risk'; label = `Выход на зачет · до автомата ${need} б.`; }
+
+  // Сколько нужно набрать на экзамене (из 100) для каждой оценки
   let examTargets = null;
   if (isExam) {
-    const semFinal = Math.min(A.RULES.examSemesterMax, projected);
-    examTargets = A.MARK_MIN.map(([mark, min]) => ({ mark, need: Math.max(0, min - semFinal), possible: min - semFinal <= 40 }));
+    examTargets = A.MARK_MIN.map(([mark, min]) => {
+      const x = Math.max(0, Math.ceil((min - A.RULES.examRatingShare * projected) / (1 - A.RULES.examRatingShare)));
+      return { mark, need: x, possible: x <= 100 };
+    });
   }
+  const parts = [
+    ...srez.map((i) => ({ title: i.title, weight: W.srez, score: i.score, date: i.date })),
+    { title: 'Посещаемость', weight: W.attendance, score: attendancePct, unit: '%' },
+    ...(work ? [{ title: 'Работа на парах', weight: W.work, score: work.score }] : []),
+  ];
   return {
     id: d.id, name: d.name, teacher: d.teacher, control: d.control, control_label: CONTROL_LABEL[d.control], credits: d.credits,
     exam_date: d.exam_date, exam_room: d.exam_room, consult_date: d.consult_date, group_avg: d.group_avg,
-    sem_max: semMax, earned, max_so_far: maxSoFar, projected, threshold, need, status, label, exam_targets: examTargets,
-    items: items.map((i) => ({ title: i.title, score: i.score, max: i.max_score, date: i.date })),
+    sem_max: 100, earned, projected, threshold, need, status, label, exam_targets: examTargets, attendance: attendancePct, items: parts,
   };
+}
+
+// Посещаемость дисциплины: доля пар, на которых студент был (пропуски по справке не снижают)
+function attendanceFor(db, userId, group, subject) {
+  const start = A.academicYearStart(new Date());
+  const today = A.isoDate(new Date());
+  const lessons = db.prepare("SELECT weekday, pair FROM lessons WHERE group_name = ? AND subject = ? AND week = 'all'").all(group, subject);
+  const cancels = new Set(db.prepare("SELECT date || '-' || pair k FROM schedule_changes WHERE group_name = ? AND subject = ? AND type = 'cancel'").all(group, subject).map((x) => x.k));
+  let total = 0;
+  for (let d = new Date(start); A.isoDate(d) < today; d = A.addDays(d, 1)) {
+    const wd = A.weekday(d);
+    for (const l of lessons) if (l.weekday === wd && !cancels.has(`${A.isoDate(d)}-${l.pair}`)) total++;
+  }
+  const missed = db.prepare('SELECT COUNT(*) n FROM absences WHERE student_id = ? AND subject = ? AND excused = 0').get(userId, subject).n;
+  return total ? Math.max(0, Math.round((1 - missed / total) * 100)) : 100;
 }
 
 function gradesOverview(db, userId) {
   const st = getStudent(db, userId);
   const discs = db.prepare('SELECT * FROM disciplines WHERE group_name = ? AND semester = ? ORDER BY id').all(st.group, st.semester);
   const itemsStmt = db.prepare('SELECT * FROM grade_items WHERE student_id = ? AND discipline_id = ? ORDER BY date');
-  const current = discs.map((d) => disciplineProgress(d, itemsStmt.all(userId, d.id)));
+  const current = discs.map((d) => disciplineProgress(d, itemsStmt.all(userId, d.id), attendanceFor(db, userId, st.group, d.name)));
 
   const finals = db.prepare(`SELECT f.*, d.name, d.semester, d.control, d.credits FROM final_grades f JOIN disciplines d ON d.id = f.discipline_id
     WHERE f.student_id = ? ORDER BY d.semester, d.id`).all(userId);

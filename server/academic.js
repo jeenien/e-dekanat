@@ -53,8 +53,9 @@ function sessionInfo(d = new Date()) {
 }
 
 // Рейтинговая система: 100 баллов (процентов) за дисциплину, европейская шкала ECTS.
-// Экзамен: до 60 баллов в семестре + до 40 на экзамене, допуск от 35.
-// Зачет: все 100 баллов в семестре, «зачтено» от 60.
+// Рейтинг = срезы (вес 1) + посещаемость (0,5) + работа на парах (0,3).
+// Зачет: от 70 — автомат, ниже — выход на зачет (сдан от 60).
+// Экзамен: допуск от 50, итог = 60% рейтинга + 40% результата экзамена.
 const SCALE = [
   { min: 90, mark: 'отлично', short: '5', ects: 'A' },
   { min: 82, mark: 'хорошо', short: '4', ects: 'B' },
@@ -66,7 +67,7 @@ const SCALE = [
 const markFor = (points) => SCALE.find((s) => points >= s.min);
 const ectsFor = (points) => (points == null ? null : markFor(points).ects);
 const MARK_MIN = [['отлично', 90], ['хорошо', 75], ['удовлетворительно', 60]];
-const RULES = { examSemesterMax: 60, examAdmission: 35, creditPass: 60 };
+const RULES = { examAdmission: 50, autoPass: 70, creditPass: 60, examRatingShare: 0.6 };
 const MARK_VALUE = { 'отлично': 5, 'хорошо': 4, 'удовлетворительно': 3, 'неудовлетворительно': 2 };
 
 module.exports = { PAIRS, PAIRS_MEO, FACULTIES, facultyOf, pairsFor, ectsFor, MARK_MIN, isoDate, parseDate, addDays, weekday, mondayOf, weekInfo, semesterFor, sessionInfo, SCALE, markFor, RULES, MARK_VALUE, academicYearStart };

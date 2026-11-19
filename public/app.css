@@ -548,3 +548,18 @@ body::after { width: 40vmax; height: 40vmax; right: -10vmax; bottom: -12vmax; ba
 .scale-n { grid-template-columns: 60fr 7fr 8fr 7fr 8fr 10fr; }
 .scale.marks { margin-top: 4px; } .scale.marks div { height: 20px; font-size: 11px; }
 @media (max-width: 959px) { .topbar { gap: 2px; } .topbar h1 { font-size: 19px; } .topbar .icon-btn { width: 40px; height: 40px; } }
+
+/* Цвета видов занятий в сетке недели (явно, поверх стеклянной рамки) */
+.week-grid .wl { border-left: 4px solid var(--brand); }
+.week-grid .wl.kind-lec { border-left-color: #5b7fd6; }
+.week-grid .wl.kind-prac { border-left-color: var(--ok); }
+.week-grid .wl.kind-lab { border-left-color: var(--accent-hot); }
+.week-grid .wl.kind-other { border-left-color: var(--info); }
+.week-grid .wl.kind-retake { border-left-color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
+.week-grid .wl.cancel { border-left-color: var(--bad); }
+.lesson.kind-lec .body { border-color: #5b7fd6; }
+.lesson.kind-retake .body { border-color: var(--bad); }
+.sw.lec { background: #5b7fd6; }
+.week-strip .dots i.rt { background: var(--bad); }
+.banner-retake { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+.banner-retake .ico { color: var(--bad); }

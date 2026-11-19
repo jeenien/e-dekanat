@@ -12,7 +12,7 @@ const KNOWLEDGE = `
 - Справка об обучении: электронная с QR-кодом формируется сразу, бумажная — 2 рабочих дня, забирать в А-112.
 - Выписка из зачетки: на русском — сразу, на английском — 5 рабочих дней.
 - Справка в военкомат — только бумажная, 3 рабочих дня.
-- Рейтинг: 100 баллов за дисциплину. Экзамен: до 60 баллов в семестре + до 40 на экзамене, допуск от 35 баллов. Зачет: «зачтено» от 60 баллов в семестре.
+- Рейтинг по дисциплине (0–100) = срезы 1–3 (вес 1) + посещаемость в % (вес 0,5) + работа на парах (вес 0,3). Зачет: рейтинг от 70 — автомат, ниже — выход на зачет. Экзамен: допуск от 50, итог = 60% рейтинга + 40% экзамена.
 - Шкала (рейтинг в процентах / ECTS): 90–100 — «отлично» (A), 82–89 — «хорошо» (B), 75–81 — «хорошо» (C), 67–74 — «удовлетворительно» (D), 60–66 — «удовлетворительно» (E), меньше 60 — «неудовлетворительно» (F).
 - Пересдачи назначают деканат и кафедра сами, заявление не нужно: дата, время и аудитория появляются в расписании и на главной. Если обычные пересдачи использованы — можно подать заявление «Ректорская пересдача».
 - Пропуски: пара = 2 академических часа. Неуважительные пропуски: 30 ч (15 пар) — выговор, 60 ч — отчисление. Пропуски по справке не учитываются.
@@ -47,7 +47,7 @@ function contextText(c) {
     `Студент: ${st.course} курс, группа ${st.group}, ${st.program}, ${st.funding.toLowerCase()}, текущий семестр ${g.semester}. ${st.funding === 'Бюджет' ? `Стипендия: ${st.stipend}.` : 'Обучение по договору.'}`,
     `Сегодня (${ruDay(c.todayS.date)}, ${c.todayS.week}-я неделя, ${c.todayS.parity === 'odd' ? 'нечетная' : 'четная'}): ${c.todayS.lessons.length ? c.todayS.lessons.map(fmtLesson).join('; ') : 'пар нет'}.`,
     `Неделя: ${c.week.slice(1).map((d) => `${ruDay(d.date)} — ${d.lessons.length ? d.lessons.map(fmtLesson).join('; ') : 'пар нет'}`).join(' | ')}.`,
-    `Текущая успеваемость: ${g.current.map((x) => `${x.name} — ${x.earned}/${x.max_so_far} баллов (из ${x.sem_max} в семестре), ${x.control_label.toLowerCase()}, статус: ${x.label}`).join('; ')}.`,
+    `Текущая успеваемость: ${g.current.map((x) => `${x.name} — рейтинг ${x.earned} из 100, прогноз ${x.projected}, ${x.control_label.toLowerCase()}, статус: ${x.label}`).join('; ')}.`,
     `Средний балл за прошлые сессии: ${g.summary.gpa ?? 'сессий еще не было'}. Долги: ${g.debts.length ? g.debts.map((d) => d.name).join(', ') : 'нет'}. ${g.summary.stipend ? `Прогноз стипендии: ${g.summary.stipend.title} — ${g.summary.stipend.text}` : ''}`,
     `Сессия: ${g.session.name} ${g.session.start}…${g.session.end}. Экзамены/зачеты: ${g.session.exams.map((e) => `${e.name} ${e.date.replace('T', ' ')} ${e.room}`).join('; ')}.`,
     `Дедлайны: ${c.deadlines.length ? c.deadlines.map((d) => `${d.title} (${d.discipline}) до ${d.due_at.replace('T', ' ').slice(0, 16)}`).join('; ') : 'нет'}.`,
@@ -88,11 +88,11 @@ function localAnswer(c, text) {
       actions.push(ACTIONS.rector_retake);
     } else answer = 'Задолженностей и назначенных пересдач нет 🎉';
   } else if (has('пропус', 'прогул', 'выговор', 'отчисл')) {
-    answer = `Неуважительных пропусков: ${c.abs.hours} ак. ч (${c.abs.hours / 2} пар). До выговора — ${Math.max(0, 30 - c.abs.hours)} ч, это ${Math.max(0, (30 - c.abs.hours) / 2)} пар. Пропуски по справке (${c.abs.excused_hours} ч) не учитываются.`;
+    answer = c.abs.hours >= 30 ? `Пропусков без уважительной причины: ${c.abs.hours} ак. ч из 60 ак. ч — это риск отчисления. Пропуски по справке (${c.abs.excused_hours} ак. ч) не учитываются.` : `Пропусков без уважительной причины: ${c.abs.hours} ак. ч из 30 ак. ч (${c.abs.hours / 2} пар). Пропуски по справке (${c.abs.excused_hours} ак. ч) не учитываются.`;
     actions.push({ label: 'Открыть «Посещаемость»', href: '#/campus' });
   } else if (has('допуск', 'балл', 'успева', 'оценк', 'экзамен', 'сесси', 'автомат', 'зачет', 'зачет')) {
     const risk = c.g.current.filter((x) => x.status !== 'ok');
-    answer = `Коротко по семестру:\n${c.g.current.map((x) => `• ${x.name}: ${x.earned} из ${x.max_so_far} возможных, ${x.label.toLowerCase()}`).join('\n')}`;
+    answer = `Коротко по семестру:\n${c.g.current.map((x) => `• ${x.name}: рейтинг ${x.earned} из 100, ${x.label.toLowerCase()}`).join('\n')}`;
     answer += risk.length ? `\n\nОбратите внимание на: ${risk.map((x) => x.name).join(', ')}.` : '\n\nВсе в графике — так держать!';
     const ex = c.g.session.exams.find((e) => e.control_label === 'Экзамен');
     if (ex) answer += `\nПервый экзамен — ${ex.name}, ${new Date(ex.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}.`;

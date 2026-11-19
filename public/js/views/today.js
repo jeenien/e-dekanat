@@ -52,27 +52,36 @@ export function bindDeadlines(root, onChange) {
 }
 
 // Пропуски: шкала с порогами «выговор» и «отчисление», без лишнего текста
+// Пропуски: до 30 ак. ч шкала до выговора; после — до 60 ак. ч, это уже риск отчисления
+export function absenceText(a) {
+  const over = a.hours >= a.limits.warning;
+  return { over, limit: over ? a.limits.expulsion : a.limits.warning, text: `${a.hours} ак. ч из ${over ? a.limits.expulsion : a.limits.warning} ак. ч` };
+}
+export function absenceChip(a) {
+  return a.level === 'ok' ? '<span class="chip ok">в норме</span>' : a.level === 'near' ? '<span class="chip warn">близко к лимиту</span>'
+    : a.level === 'warning' ? '<span class="chip bad">риск отчисления</span>' : '<span class="chip bad">лимит исчерпан</span>';
+}
 export function absenceMeter(a) {
-  const max = a.limits.expulsion;
-  const pct = (x) => Math.min(100, x / max * 100);
-  const cls = a.hours >= a.limits.warning ? 'bad' : a.level === 'near' ? 'warn' : '';
-  return `<div class="meter" role="img" aria-label="Пропущено ${a.hours} академических часов из ${a.limits.warning} до выговора">
+  const { over, limit } = absenceText(a);
+  const pct = (x) => Math.min(100, x / limit * 100);
+  const cls = over ? 'bad' : a.level === 'near' ? 'warn' : '';
+  return `<div class="meter" role="img" aria-label="Пропущено ${a.hours} из ${limit} академических часов">
     <i class="${cls}" style="width:${pct(a.hours)}%"></i>
-    <span class="th" style="left:${pct(a.limits.warning)}%"><b>${a.limits.warning} ч</b><small>выговор</small></span>
-    <span class="th end" style="left:calc(100% - 2px)"><b>${a.limits.expulsion} ч</b><small>отчисление</small></span></div>`;
+    ${over ? `<span class="th" style="left:${pct(a.limits.warning)}%"><b>${a.limits.warning}</b><small>выговор</small></span>` : ''}
+    <span class="th end" style="left:calc(100% - 2px)"><b>${limit} ак. ч</b></span></div>`;
 }
 function absenceCard(a) {
-  const chip = a.level === 'ok' ? '<span class="chip ok">в норме</span>' : a.level === 'near' ? '<span class="chip warn">близко к лимиту</span>' : a.level === 'warning' ? '<span class="chip bad">лимит превышен</span>' : '<span class="chip bad">критично</span>';
-  return `<a class="card" href="#/campus" style="color:var(--text);display:block"><div class="card-h"><h2>Пропуски</h2>${chip}</div>
-    <div class="row between" style="align-items:flex-end"><div class="big-num">${a.hours} <small>ак. ч</small></div>
-      <div class="small muted" style="text-align:right">${a.left_to_warning ? `до выговора ${a.left_to_warning} ч<br>≈ ${Math.ceil(a.left_to_warning / 2)} ${plural(Math.ceil(a.left_to_warning / 2), 'пара', 'пары', 'пар')}` : ''}${a.excused_hours ? `<div class="xs faint">+ ${a.excused_hours} ч по справке</div>` : ''}</div></div>
+  const t = absenceText(a);
+  return `<a class="card" href="#/campus" style="color:var(--text);display:block"><div class="card-h"><h2>Пропуски</h2>${absenceChip(a)}</div>
+    <div class="big-num" style="${t.over ? 'color:var(--bad)' : ''}">${a.hours} <small>ак. ч из ${t.limit} ак. ч${t.over ? ' · риск отчисления' : ''}</small></div>
+    ${a.excused_hours ? `<div class="xs faint" style="margin-top:4px">+ ${a.excused_hours} ак. ч по справке не учитываются</div>` : ''}
     ${absenceMeter(a)}</a>`;
 }
 const hmin = (m) => `${Math.floor(m / 60)} ч ${String(m % 60).padStart(2, '0')} мин`;
 function campusMini(c) {
   const t = c.today;
   return `<a class="card row" href="#/campus/passes" style="color:var(--text)"><div class="li" style="padding:0;border:0;min-height:0"><div class="ico ${t.inside ? 'ok' : ''}">${icon('pin')}</div></div>
-    <div class="grow"><b>${t.inside ? `В университете с ${t.first_in}` : t.first_in ? `Сегодня: ${t.first_in}–${t.last_out}` : 'Сегодня проходов нет'}</b>
+    <div class="grow"><b>${t.first_in ? `Вход в ${t.first_in}${t.inside ? '' : ` · выход в ${t.last_out}`}` : 'Сегодня проходов нет'}</b>
     <div class="small muted">${t.minutes ? hmin(t.minutes) + ' сегодня · ' : ''}${Math.round(c.week_minutes / 60)} ч за неделю</div></div>${icon('chevronRight')}</a>`;
 }
 
@@ -90,7 +99,7 @@ export async function render(ctx) {
   ctx.el.innerHTML = `<div class="page stack">
     <div class="hello"><h2>${greeting()}, ${esc(u.first_name)}!</h2>
       <p>${fmt.wdFull(t)[0].toUpperCase() + fmt.wdFull(t).slice(1)}, ${fmt.dm(t)} · ${today.week}-я неделя, ${today.parity === 'odd' ? 'нечетная' : 'четная'}</p></div>
-    ${d.retakes.map((r) => `<a class="banner-retake" href="#/schedule/${esc(r.date)}"><span class="ico">${icon('refresh', 'lg')}</span><div class="grow"><div class="row between" style="align-items:flex-start"><b>У вас пересдача</b><span class="chip warn">${fmt.until(r.date + 'T' + r.start)}</span></div>
+    ${d.retakes.map((r) => `<a class="banner-retake" href="#/schedule/${esc(r.date)}"><span class="ico">${icon('refresh', 'lg')}</span><div class="grow"><div class="row between" style="align-items:flex-start"><b>У вас пересдача</b><span class="chip bad">${fmt.until(r.date + 'T' + r.start)}</span></div>
       <div style="font-weight:700;margin-top:2px">${esc(r.discipline)}</div><div class="small muted">${fmt.dayTitle(parseISO(r.date))}, ${r.start} · ауд. ${esc(r.room)} · ${esc(r.examiner)}</div></div></a>`).join('')}
     ${activeChanges.length ? `<a class="card row" href="#/schedule" style="background:var(--warn-soft);border-color:transparent;color:var(--text)">
       <div class="ico" style="color:var(--warn)">${icon('alert', 'lg')}</div><div class="grow"><b>${activeChanges.length} ${plural(activeChanges.length, 'изменение', 'изменения', 'изменений')} в расписании</b>

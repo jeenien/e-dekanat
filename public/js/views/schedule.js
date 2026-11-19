@@ -7,7 +7,7 @@ export function changeLabel(c) {
 function changeNote(l) {
   const c = l.change; if (!c) return '';
   const cls = c.type === 'cancel' ? 'bad' : c.type === 'extra' || c.type === 'moved_in' ? 'info' : 'warn';
-  if (c.type === 'retake') return `<div class="change-note warn">${icon('refresh', 'sm')} Ваша пересдача · ${esc(c.note || '')}</div>`;
+  if (c.type === 'retake') return `<div class="change-note bad">${icon('refresh', 'sm')} Ваша пересдача · ${esc(c.note || '')}</div>`;
   let txt = changeLabel(c);
   if (c.type === 'room') txt += `: ${l.room} вместо ${c.old_room}`;
   if (c.type === 'teacher') txt += `: вместо ${c.old_teacher}`;
@@ -67,18 +67,18 @@ export async function render(ctx) {
     <div class="sched-mobile stack">
       <div class="week-strip" role="tablist" aria-label="Дни недели">${days.map((d) => {
         const dd = parseISO(d.date);
-        return `<button role="tab" aria-selected="${d.date === day.date}" class="${d.date === day.date ? 'on' : ''} ${d.date === todayISO() ? 'today' : ''}" data-date="${d.date}"><small>${fmt.wd(dd)}</small><b>${dd.getDate()}</b><span class="dots">${d.lessons.slice(0, 4).map((l) => `<i class="${l.change ? 'ch' : ''}"></i>`).join('')}</span></button>`;
+        return `<button role="tab" aria-selected="${d.date === day.date}" class="${d.date === day.date ? 'on' : ''} ${d.date === todayISO() ? 'today' : ''}" data-date="${d.date}"><small>${fmt.wd(dd)}</small><b>${dd.getDate()}</b><span class="dots">${d.lessons.slice(0, 4).map((l) => `<i class="${l.change?.type === 'retake' ? 'rt' : l.change ? 'ch' : ''}"></i>`).join('')}</span></button>`;
       }).join('')}</div>
       <section class="card"><div class="card-h"><h2>${fmt.dayTitle(parseISO(day.date))}</h2><span class="chip">${day.lessons.filter((l) => l.change?.type !== 'cancel').length} ${plural(day.lessons.filter((l) => l.change?.type !== 'cancel').length, 'пара', 'пары', 'пар')}</span></div>${dayList(day)}</section>
     </div>
     <div class="week-grid">${days.slice(0, 6).map((d) => {
       const dd = parseISO(d.date);
       return `<div class="col ${d.date === todayISO() ? 'today' : ''}"><h3>${fmt.wd(dd).toUpperCase()} <small>${fmt.dmShort(dd)}</small></h3>
-        ${d.lessons.length ? d.lessons.map((l) => `<div class="wl ${kindClass(l.kind)} ${l.change?.type === 'cancel' ? 'cancel' : l.change ? 'changed' : ''}" title="${esc(l.change ? changeLabel(l.change) : '')}">
+        ${d.lessons.length ? d.lessons.map((l) => `<div class="wl ${kindClass(l.kind)} ${l.change?.type === 'cancel' ? 'cancel' : l.change?.type === 'retake' ? '' : l.change ? 'changed' : ''}" title="${esc(l.change ? changeLabel(l.change) : '')}">
           <div class="faint">${l.pair} · ${l.start}–${l.end}</div><b>${esc(l.subject)}</b><div class="faint">${esc(l.kind)} · ${esc(l.room)}</div>${l.teacher ? `<div class="faint">${esc(l.teacher)}</div>` : ''}
-          ${l.change ? `<div class="xs" style="color:${l.change.type === 'cancel' ? 'var(--bad)' : 'var(--warn)'};font-weight:800;margin-top:2px">${esc(changeLabel(l.change))}</div>` : ''}</div>`).join('') : '<div class="faint small" style="padding:8px 2px">Пар нет</div>'}</div>`;
+          ${l.change ? `<div class="xs" style="color:${['cancel', 'retake'].includes(l.change.type) ? 'var(--bad)' : 'var(--warn)'};font-weight:800;margin-top:2px">${esc(changeLabel(l.change))}</div>` : ''}</div>`).join('') : '<div class="faint small" style="padding:8px 2px">Пар нет</div>'}</div>`;
     }).join('')}</div>
-    <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>семинар</span><span><i class="sw oth"></i>консультация</span><span><i class="sw" style="background:var(--warn)"></i>пересдача / изменение</span></div>
+    <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>семинар</span><span><i class="sw oth"></i>консультация</span><span><i class="sw" style="background:var(--warn)"></i>изменение</span><span><i class="sw" style="background:var(--bad)"></i>пересдача</span></div>
   </div>`;
   ctx.el.querySelectorAll('.week-strip [data-date]').forEach((b) => b.onclick = () => { history.replaceState(null, '', `#/schedule/${b.dataset.date}`); ctx.params.date = b.dataset.date; render(ctx); });
 }
