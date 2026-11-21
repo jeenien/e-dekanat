@@ -47,7 +47,7 @@ function createApi(db, auth) {
     const today = todayParam(req.query.date);
     const week = S.rangeSchedule(db, st.group, today, 8, req.user.id);
     const g = S.gradesOverview(db, req.user.id);
-    const notif = S.notificationsFor(db, req.user.id, st);
+    const notif = S.notificationsFor(db, req.user.id, st, req.user.role);
     const reqs = db.prepare("SELECT * FROM requests WHERE student_id = ? AND (status NOT IN ('done','rejected') OR updated_at > ?) ORDER BY updated_at DESC LIMIT 4").all(req.user.id, new Date(Date.now() - 7 * 864e5).toISOString());
     const changes = week.flatMap((d) => d.lessons.filter((l) => l.change && l.change.type !== 'retake').map((l) => ({ date: d.date, ...l })));
     const abs = S.absencesFor(db, req.user.id);
@@ -170,11 +170,11 @@ function createApi(db, auth) {
   // ---------- Уведомления ----------
   api.get('/notifications', anyUser, (req, res) => {
     const st = req.user.role === 'student' ? S.getStudent(db, req.user.id) : null;
-    res.json(S.notificationsFor(db, req.user.id, st));
+    res.json(S.notificationsFor(db, req.user.id, st, req.user.role));
   });
   api.post('/notifications/read', anyUser, (req, res) => {
     const st = req.user.role === 'student' ? S.getStudent(db, req.user.id) : null;
-    const visible = new Set(S.notificationsFor(db, req.user.id, st).filter((n) => !n.virtual).map((n) => n.id));
+    const visible = new Set(S.notificationsFor(db, req.user.id, st, req.user.role).filter((n) => !n.virtual).map((n) => n.id));
     const ids = req.body?.all ? [...visible] : (Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter((id) => visible.has(id)) : []);
     const ins = db.prepare('INSERT OR IGNORE INTO notification_reads (user_id, notification_id) VALUES (?,?)');
     for (const id of ids) ins.run(req.user.id, id);
@@ -272,7 +272,7 @@ function createApi(db, auth) {
       if (typeof subject !== 'string' || !subject.trim() || subject.length > 150) return res.status(400).json({ error: 'Укажите дисциплину' });
       if (typeof room !== 'string' || !room.trim() || room.length > 40) return res.status(400).json({ error: 'Укажите аудиторию' });
       const day = S.daySchedule(db, group, date);
-      const clash = day.lessons.filter((l) => l.change?.type !== 'cancel' && start < l.end && l.start < end);
+      const clash = day.lessons.filter((l) => S.isActive(l) && start < l.end && l.start < end);
       if (clash.length) {
         const list = clash.map((l) => `${l.pair ? l.pair + '-я пара' : 'занятие'} ${l.start}–${l.end} «${l.subject}»`).join(' и ');
         return res.status(409).json({ error: `Время пересекается: ${list}. Выберите другое время или сначала отмените ${clash.length > 1 ? 'эти пары' : 'эту пару'}.`, conflicts: clash.map((l) => ({ pair: l.pair, start: l.start, end: l.end, subject: l.subject })) });
@@ -341,6 +341,21 @@ function createApi(db, auth) {
     const date = todayParam(req.query.date);
     if (!db.prepare('SELECT 1 FROM students WHERE group_name = ?').get(group)) return res.status(400).json({ error: 'Неизвестная группа' });
     res.json(S.daySchedule(db, group, date));
+  });
+
+  // Типовое заявление в PDF: бланк по услуге или заполненное по своей заявке
+  api.get('/statements/:type.pdf', student, (req, res) => {
+    const type = String(req.params.type);
+    if (!TYPES[type]?.statement) return res.status(404).json({ error: 'Для этой услуги нет типового заявления' });
+    let payload = {}, pid = null;
+    if (req.query.request) {
+      const r = db.prepare('SELECT * FROM requests WHERE public_id = ? AND student_id = ? AND type = ?').get(String(req.query.request), req.user.id, type);
+      if (!r) return res.status(404).json({ error: 'Заявка не найдена' });
+      payload = JSON.parse(r.payload); pid = r.public_id;
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="zayavlenie-${type}.pdf"`);
+    require('./statements').statementPdf(db, req.user.id, type, payload, pid).pipe(res);
   });
 
   // Документы: только владелец заявки

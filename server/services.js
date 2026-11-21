@@ -37,7 +37,7 @@ function daySchedule(db, group, dateStr, userId = null) {
       continue;
     }
     if (c.type === 'move' && c.new_date === dateStr && c.date !== dateStr) {
-      lessons.push({ pair: c.new_pair, start: P[c.new_pair][0], end: P[c.new_pair][1], subject: c.subject, kind: c.kind || 'Занятие', room: c.new_room || '—', teacher: c.new_teacher || '—', online: false, change: { type: 'moved_in', note: c.note, from: c.date } });
+      lessons.push({ pair: c.start_time ? 0 : c.new_pair, start: c.start_time || P[c.new_pair][0], end: c.end_time || P[c.new_pair][1], subject: c.subject, kind: c.kind || 'Занятие', room: c.new_room || '—', teacher: c.new_teacher || '', online: false, change: { type: 'moved_in', note: c.note, from: c.date } });
       continue;
     }
     const l = lessons.find((x) => x.pair === c.pair && c.date === dateStr);
@@ -45,7 +45,7 @@ function daySchedule(db, group, dateStr, userId = null) {
     if (c.type === 'cancel') l.change = { type: 'cancel', note: c.note };
     if (c.type === 'room') { l.change = { type: 'room', note: c.note, old_room: l.room }; l.room = c.new_room; l.online = false; }
     if (c.type === 'teacher') { l.change = { type: 'teacher', note: c.note, old_teacher: l.teacher }; l.teacher = c.new_teacher; }
-    if (c.type === 'move') l.change = { type: 'move', note: c.note, new_date: c.new_date, new_pair: c.new_pair };
+    if (c.type === 'move') l.change = { type: 'move', note: c.note, new_date: c.new_date, new_pair: c.new_pair, new_start: c.start_time || null };
   }
   // Личные пересдачи студента (их назначают деканат и кафедра)
   if (userId) {
@@ -53,9 +53,20 @@ function daySchedule(db, group, dateStr, userId = null) {
       lessons.push({ pair: r.pair, start: P[r.pair][0], end: P[r.pair][1], subject: r.discipline, kind: 'Пересдача', room: r.room, teacher: r.examiner, online: false, change: { type: 'retake', note: `Попытка ${r.attempt}` } });
     }
   }
+  // Мероприятия, которые студент добавил в свой календарь
+  if (userId) {
+    for (const e of db.prepare('SELECT e.* FROM user_events ue JOIN events e ON e.id = ue.event_id WHERE ue.user_id = ? AND substr(e.start_at, 1, 10) = ?').all(userId, dateStr)) {
+      lessons.push({ pair: 0, start: e.start_at.slice(11, 16), end: e.end_at.slice(11, 16), subject: e.title, kind: 'Мероприятие', room: e.place, teacher: '', online: false, event_id: e.id, change: { type: 'event' } });
+    }
+  }
   lessons.sort((a, b) => a.start.localeCompare(b.start));
   return { date: dateStr, weekday: wd, week: number, parity, lessons };
 }
+
+// Занятие «идет» (не отменено и не перенесено) — для проверки пересечений
+const isActive = (l) => !['cancel', 'move'].includes(l.change?.type);
+const overlaps = (aStart, aEnd, l) => aStart < l.end && l.start < aEnd;
+const pairName = (l) => (l.change?.type === 'event' ? `мероприятие «${l.subject}»` : `${l.pair ? `${l.pair}-я пара` : 'занятие'} ${l.start}–${l.end} «${l.subject}»`);
 
 function rangeSchedule(db, group, fromStr, days, userId = null) {
   const from = A.parseDate(fromStr);
@@ -168,19 +179,25 @@ function gradesOverview(db, userId) {
 function deadlinesFor(db, userId, group) {
   return db.prepare(`SELECT dl.*, CASE WHEN dd.deadline_id IS NULL THEN 0 ELSE 1 END AS done FROM deadlines dl
     LEFT JOIN deadline_done dd ON dd.deadline_id = dl.id AND dd.user_id = ? WHERE dl.group_name = ? ORDER BY dl.due_at`).all(userId, group)
-    .map((x) => ({ id: x.id, discipline: x.discipline, title: x.title, due_at: x.due_at, kind: x.kind, done: Boolean(x.done) }));
+    .map((x) => ({ id: x.id, discipline: x.discipline, title: x.title, due_at: x.due_at, kind: x.kind, done: Boolean(x.done), description: x.description, lesson_date: x.lesson_date, lesson_start: x.lesson_start, from_teacher: Boolean(x.teacher_id) }));
 }
 
 // ---------- Уведомления ----------
-function audiencesFor(st, userId) {
-  return ['all', `user:${userId}`, ...(st ? [`group:${st.group}`, `faculty:${st.faculty}`] : ['staff'])];
+function audiencesFor(st, userId, role) {
+  if (st) return ['all', `user:${userId}`, `group:${st.group}`, `faculty:${st.faculty}`];
+  return ['all', `user:${userId}`, role === 'teacher' ? 'teachers' : 'staff'];
 }
-function notificationsFor(db, userId, st) {
-  const aud = audiencesFor(st, userId);
+function notificationsFor(db, userId, st, role = st ? 'student' : 'staff') {
+  const aud = audiencesFor(st, userId, role);
   const rows = db.prepare(`SELECT n.*, CASE WHEN r.notification_id IS NULL THEN 0 ELSE 1 END AS read FROM notifications n
     LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = ?
     WHERE n.audience IN (${aud.map(() => '?').join(',')}) ORDER BY n.pinned DESC, n.created_at DESC LIMIT 100`).all(userId, ...aud);
-  const list = rows.map((n) => ({ id: n.id, category: n.category, title: n.title, body: n.body, link: n.link, important: Boolean(n.important), pinned: Boolean(n.pinned), author: n.author, created_at: n.created_at, read: Boolean(n.read) }));
+  const added = new Set(db.prepare('SELECT event_id FROM user_events WHERE user_id = ?').all(userId).map((x) => x.event_id));
+  const list = rows.map((n) => {
+    const m = n.category === 'event' && /^#\/events\/(\d+)$/.exec(n.link || '');
+    return { id: n.id, category: n.category, title: n.title, body: n.body, link: n.link, important: Boolean(n.important), pinned: Boolean(n.pinned), author: n.author, created_at: n.created_at, read: Boolean(n.read),
+      ...(m ? { event_id: Number(m[1]), event_added: added.has(Number(m[1])) } : {}) };
+  });
   // Напоминания о дедлайнах формируются на лету: ближайшие 48 часов, еще не отмеченные выполненными
   if (st) {
     const soon = deadlinesFor(db, userId, st.group).filter((d) => !d.done && new Date(d.due_at) > Date.now() && new Date(d.due_at) - Date.now() < 48 * 3600e3);
@@ -232,4 +249,4 @@ function campusFor(db, userId, days = 14) {
   return { days: out, week_minutes: week.reduce((s2, d) => s2 + d.minutes, 0), week_days: week.filter((d) => d.minutes > 0).length, inside: out[0]?.inside || false };
 }
 
-module.exports = { ABSENCE, retakesFor, absencesFor, campusFor, getStudent, daySchedule, rangeSchedule, gradesOverview, deadlinesFor, notificationsFor, audiencesFor, CONTROL_LABEL };
+module.exports = { attendanceFor, isActive, overlaps, pairName, ABSENCE, retakesFor, absencesFor, campusFor, getStudent, daySchedule, rangeSchedule, gradesOverview, deadlinesFor, notificationsFor, audiencesFor, CONTROL_LABEL };

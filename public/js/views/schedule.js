@@ -1,18 +1,33 @@
 // Расписание: лента недели на телефоне, сетка недели на широком экране, изменения подсвечены.
-import { api, esc, icon, fmt, parseISO, isoDate, addDays, todayISO, minutes, empty, kindClass, plural } from '../lib.js';
+import { api, esc, icon, fmt, parseISO, isoDate, addDays, todayISO, minutes, empty, kindClass, plural, sheet, toast } from '../lib.js';
 
 export function changeLabel(c) {
-  return { cancel: 'Отмена', room: 'Новая аудитория', teacher: 'Замена преподавателя', extra: 'Доп. занятие', move: 'Перенос', moved_in: 'Перенесено сюда', retake: 'Пересдача' }[c.type] || 'Изменение';
+  return { cancel: 'Отмена', room: 'Новая аудитория', teacher: 'Замена преподавателя', extra: 'Доп. занятие', move: 'Перенос', moved_in: 'Перенесено сюда', retake: 'Пересдача', event: 'Мероприятие' }[c.type] || 'Изменение';
 }
 function changeNote(l) {
   const c = l.change; if (!c) return '';
   const cls = c.type === 'cancel' ? 'bad' : c.type === 'extra' || c.type === 'moved_in' ? 'info' : 'warn';
+  if (c.type === 'event') return '';
   if (c.type === 'retake') return `<div class="change-note bad">${icon('refresh', 'sm')} Ваша пересдача · ${esc(c.note || '')}</div>`;
   let txt = changeLabel(c);
   if (c.type === 'room') txt += `: ${l.room} вместо ${c.old_room}`;
   if (c.type === 'teacher') txt += `: вместо ${c.old_teacher}`;
-  if (c.type === 'move' && c.new_date) txt += ` на ${fmt.dmShort(parseISO(c.new_date))}, ${c.new_pair} пара`;
+  if (c.type === 'move' && c.new_date) txt += ` на ${fmt.dmShort(parseISO(c.new_date))}${c.new_start ? `, ${c.new_start}` : c.new_pair ? `, ${c.new_pair} пара` : ''}`;
+  if (c.type === 'moved_in' && c.from) txt += ` с ${fmt.dmShort(parseISO(c.from))}`;
   return `<div class="change-note ${cls}">${icon(c.type === 'cancel' ? 'x' : c.type === 'extra' ? 'plus' : 'alert', 'sm')} ${esc(txt)}${c.note ? ` · ${esc(c.note)}` : ''}</div>`;
+}
+
+// Атрибуты для клика: пара открывает карточку с заданиями, мероприятие — свою страницу
+export const itemAttrs = (l, date) => (l.event_id ? `data-event="${l.event_id}" tabindex="0" role="link"` : `data-lesson="${date}|${l.start}" tabindex="0" role="button"`);
+
+// Пересекающиеся по времени занятия собираем в группы — они встают рядом, как в календаре
+export function clusters(lessons) {
+  const out = [];
+  for (const l of lessons) {
+    const last = out[out.length - 1];
+    if (last && l.start < last.end) { last.items.push(l); if (l.end > last.end) last.end = l.end; } else out.push({ end: l.end, items: [l] });
+  }
+  return out.map((c) => c.items);
 }
 
 export function lessonHtml(l, date) {
@@ -20,7 +35,8 @@ export function lessonHtml(l, date) {
   const nowM = new Date().getHours() * 60 + new Date().getMinutes();
   const now = isToday && minutes(l.start) <= nowM && nowM < minutes(l.end) && l.change?.type !== 'cancel';
   const past = isToday && minutes(l.end) <= nowM;
-  return `<div class="lesson ${kindClass(l.kind)} ${l.change?.type === 'cancel' ? 'cancel' : ''} ${now ? 'now' : ''} ${past ? 'past' : ''}">
+  const off = ['cancel', 'move'].includes(l.change?.type);
+  return `<div class="lesson ${kindClass(l.kind)} ${off ? 'cancel' : ''} ${now ? 'now' : ''} ${past ? 'past' : ''} click" ${itemAttrs(l, date)}>
     <div class="time">${l.start}<small>${l.end}</small></div>
     <div class="body"><div class="row between" style="align-items:flex-start;gap:8px"><div class="subj">${esc(l.subject)}</div>${now ? '<span class="chip brand">сейчас</span>' : ''}</div>
       <div class="info"><span>${esc(l.kind)}</span><span>${icon(l.online ? 'monitor' : 'map', 'sm')} ${l.change?.type === 'room' ? `<s class="old">${esc(l.change.old_room)}</s>&nbsp;<b>${esc(l.room)}</b>` : esc(l.room)}</span>${l.teacher ? `<span>${icon('teacher', 'sm')} ${esc(l.teacher)}</span>` : ''}</div>
@@ -29,18 +45,51 @@ export function lessonHtml(l, date) {
     </div></div>`;
 }
 
-function dayList(day) {
+export function dayList(day) {
   if (!day.lessons.length) return empty(parseISO(day.date).getDay() === 0 ? 'coffee' : 'sun', parseISO(day.date).getDay() === 0 ? 'Воскресенье — выходной' : 'Пар нет', 'Свободный день в расписании.');
   const out = [];
-  day.lessons.forEach((l, i) => {
-    const prev = day.lessons[i - 1];
-    if (prev) {
-      const gap = minutes(l.start) - minutes(prev.end);
+  let prevEnd = null;
+  for (const group of clusters(day.lessons)) {
+    const start = group.reduce((m, x) => (x.start < m ? x.start : m), group[0].start);
+    if (prevEnd) {
+      const gap = minutes(start) - minutes(prevEnd);
       if (gap >= 30) out.push(`<div class="break">${icon('coffee', 'sm')} Перерыв ${gap >= 90 ? `${Math.floor(gap / 60)} ч ${gap % 60 ? (gap % 60) + ' мин' : ''}` : `${gap} мин`}</div>`);
     }
-    out.push(lessonHtml(l, day.date));
-  });
+    out.push(group.length > 1
+      ? `<div class="cluster" style="--n:${group.length}"><div class="cluster-h">${icon('alert', 'sm')} Пересечение по времени</div><div class="cluster-row">${group.map((l) => lessonHtml(l, day.date)).join('')}</div></div>`
+      : lessonHtml(group[0], day.date));
+    prevEnd = group.reduce((m, x) => (x.end > m ? x.end : m), group[0].end);
+  }
   return `<div class="day">${out.join('')}</div>`;
+}
+
+// Карточка пары: детали и задания с дедлайнами, которые преподаватель прикрепил к этой паре
+export async function openLesson(date, start) {
+  let l;
+  try { l = await api(`/lesson?date=${date}&start=${encodeURIComponent(start)}`); } catch (e) { toast(e.message, 'bad'); return; }
+  sheet(`<div class="sheet-h"><h2>${esc(l.subject)}</h2><button class="icon-btn" data-close aria-label="Закрыть">${icon('x')}</button></div>
+    <div class="stack" style="gap:6px">
+      <div class="row small">${icon('calendar', 'sm')} ${fmt.wdFull(parseISO(date))}, ${fmt.dm(parseISO(date))} · ${l.start}–${l.end}</div>
+      <div class="row small">${icon('map', 'sm')} ${esc(l.room)} · ${esc(l.kind)}</div>
+      ${l.teacher ? `<div class="row small">${icon('teacher', 'sm')} ${esc(l.teacher)}</div>` : ''}
+      ${changeNote(l)}
+    </div>
+    <div class="section-title">Задания к этой паре</div>
+    ${l.tasks.length ? l.tasks.map((t) => `<div class="card" style="padding:12px;margin-bottom:8px"><div class="row between" style="align-items:flex-start"><b>${esc(t.title)}</b><span class="chip ${t.done ? 'ok' : new Date(t.due_at) - Date.now() < 48 * 3600e3 ? 'bad' : ''}">${t.done ? 'готово' : 'до ' + esc(fmt.dateTime(t.due_at))}</span></div>
+      ${t.description ? `<p class="small muted" style="margin-top:4px">${esc(t.description)}</p>` : ''}</div>`).join('')
+      : empty('checkCircle', 'Заданий нет', 'Если преподаватель задаст задание к этой паре, оно появится здесь и в дедлайнах.')}`,
+  { label: l.subject });
+}
+
+export function bindScheduleClicks(root) {
+  const go = (el) => {
+    if (el.dataset.event) { location.hash = `#/events/${el.dataset.event}`; return; }
+    const [date, start] = el.dataset.lesson.split('|'); openLesson(date, start);
+  };
+  root.querySelectorAll('[data-lesson], [data-event]').forEach((el) => {
+    el.addEventListener('click', (e) => { if (!e.target.closest('a')) go(el); });
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(el); });
+  });
 }
 
 export async function render(ctx) {
@@ -52,7 +101,7 @@ export async function render(ctx) {
   if (!ctx.isCurrent()) return;
   const days = data.days;
   const day = days.find((d) => d.date === sel) || days[0];
-  const changes = days.reduce((s, d) => s + d.lessons.filter((l) => l.change).length, 0);
+  const changes = days.reduce((s, d) => s + d.lessons.filter((l) => l.change && !['event', 'retake'].includes(l.change.type)).length, 0);
   const prevW = isoDate(addDays(monday, -7)), nextW = isoDate(addDays(monday, 7));
 
   ctx.el.innerHTML = `<div class="page stack">
@@ -74,11 +123,12 @@ export async function render(ctx) {
     <div class="week-grid">${days.slice(0, 6).map((d) => {
       const dd = parseISO(d.date);
       return `<div class="col ${d.date === todayISO() ? 'today' : ''}"><h3>${fmt.wd(dd).toUpperCase()} <small>${fmt.dmShort(dd)}</small></h3>
-        ${d.lessons.length ? d.lessons.map((l) => `<div class="wl ${kindClass(l.kind)} ${l.change?.type === 'cancel' ? 'cancel' : l.change?.type === 'retake' ? '' : l.change ? 'changed' : ''}" title="${esc(l.change ? changeLabel(l.change) : '')}">
+        ${d.lessons.length ? clusters(d.lessons).map((g) => `<div class="${g.length > 1 ? 'wl-cluster' : ''}" style="--n:${g.length}">${g.map((l) => `<div class="wl ${kindClass(l.kind)} ${['cancel', 'move'].includes(l.change?.type) ? 'cancel' : ['retake', 'event'].includes(l.change?.type) ? '' : l.change ? 'changed' : ''} click" ${itemAttrs(l, d.date)} title="${esc(l.subject)}">
           <div class="faint">${l.pair ? `${l.pair} · ` : ''}${l.start}–${l.end}</div><b>${esc(l.subject)}</b><div class="faint">${esc(l.kind)} · ${esc(l.room)}</div>${l.teacher ? `<div class="faint">${esc(l.teacher)}</div>` : ''}
-          ${l.change ? `<div class="xs" style="color:${['cancel', 'retake'].includes(l.change.type) ? 'var(--bad)' : 'var(--warn)'};font-weight:800;margin-top:2px">${esc(changeLabel(l.change))}</div>` : ''}</div>`).join('') : '<div class="faint small" style="padding:8px 2px">Пар нет</div>'}</div>`;
+          ${l.change && l.change.type !== 'event' ? `<div class="xs" style="color:${['cancel', 'retake', 'move'].includes(l.change.type) ? 'var(--bad)' : 'var(--warn)'};font-weight:800;margin-top:2px">${esc(changeLabel(l.change))}</div>` : ''}</div>`).join('')}</div>`).join('') : '<div class="faint small" style="padding:8px 2px">Пар нет</div>'}</div>`;
     }).join('')}</div>
-    <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>семинар</span><span><i class="sw oth"></i>консультация</span><span><i class="sw" style="background:var(--warn)"></i>изменение</span><span><i class="sw" style="background:var(--bad)"></i>пересдача</span></div>
+    <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>семинар</span><span><i class="sw oth"></i>консультация</span><span><i class="sw ev"></i>мероприятие</span><span><i class="sw" style="background:var(--warn)"></i>изменение</span><span><i class="sw" style="background:var(--bad)"></i>пересдача</span></div>
   </div>`;
+  bindScheduleClicks(ctx.el);
   ctx.el.querySelectorAll('.week-strip [data-date]').forEach((b) => b.onclick = () => { history.replaceState(null, '', `#/schedule/${b.dataset.date}`); ctx.params.date = b.dataset.date; render(ctx); });
 }

@@ -107,6 +107,7 @@ async function renderForm(ctx) {
         <div class="grow"><b style="font-size:17px">${esc(t.title)}</b><div class="small muted">${esc(t.description)}</div></div></div>
       ${t.fields.map((f) => fieldHtml(f, values)).join('')}
       <button class="btn grad block" type="submit" id="submit">${icon('send')} Отправить</button>
+      ${t.statement ? `<a class="btn ghost block" style="margin-top:8px" href="/api/statements/${t.id}.pdf" target="_blank" rel="noopener">${icon('printer')} Пустой бланк заявления (PDF)</a>` : ''}
       <p class="xs faint" style="margin-top:10px;text-align:center">Черновик сохраняется на этом устройстве, пока вы не отправите заявку</p>
     </form>
     <aside class="card"><b>${icon('info', 'sm')} Как это работает</b>
@@ -208,6 +209,7 @@ export async function renderOne(ctx) {
         ${r.status === 'need_info' ? `<div class="change-note warn" style="margin-top:12px;display:flex">${icon('message', 'sm')} Деканату нужно уточнение — ответьте в переписке ниже</div>` : ''}
         ${r.eta && !['ready', 'done', 'rejected'].includes(r.status) ? `<p class="small muted" style="margin-top:10px">${icon('clock', 'sm')} Плановый срок: <b>${fmt.dm(parseISO(r.eta))}</b>${r.assignee ? ` · ответственный: ${esc(r.assignee)}` : ''}</p>` : ''}
         ${r.has_document ? `<div class="row wrap" style="margin-top:14px"><a class="btn" href="/api/requests/${esc(r.id)}/document" target="_blank" rel="noopener">${icon('download')} Открыть документ</a></div>` : ''}
+        ${r.statement ? `<div class="row wrap" style="margin-top:14px"><a class="btn ghost" href="/api/statements/${esc(r.type)}.pdf?request=${encodeURIComponent(r.id)}" target="_blank" rel="noopener">${icon('printer')} Заявление в PDF</a><span class="xs faint">Скачайте, распечатайте и подпишите</span></div>` : ''}
         ${['ready', 'done'].includes(r.status) ? `<hr class="sep"><div class="row between wrap"><span class="small muted">Как вам скорость и качество?</span><div class="stars" role="radiogroup" aria-label="Оценка">${[1, 2, 3, 4, 5].map((n) => `<button data-rate="${n}" class="${r.rating >= n ? 'on' : ''}" aria-label="${n} из 5">★</button>`).join('')}</div></div>` : ''}
       </section>
       <section class="card"><h2 style="font-size:17px;margin-bottom:10px">Данные заявки</h2>

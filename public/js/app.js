@@ -8,6 +8,8 @@ import * as Notifications from './views/notifications.js';
 import * as Profile from './views/profile.js';
 import * as Staff from './views/staff.js';
 import * as Campus from './views/campus.js';
+import * as Teacher from './views/teacher.js';
+import * as Events from './views/events.js';
 import { openAssistant } from './views/assistant.js';
 import { openPalette } from './views/palette.js';
 
@@ -55,6 +57,7 @@ const DEMO = [
   { login: 'timur', password: 'Orbita-Timur-2026', name: 'Тимур Северцев', note: 'МЖ, реклама и СО, 2 курс' },
   { login: 'nika', password: 'Orbita-Nika-2026', name: 'Ника Полярная', note: 'МО, регионоведение, 1 курс' },
   { login: 'dekanat', password: 'Orbita-Staff-2026', name: 'Ольга Ладогина', note: 'Сотрудник деканата' },
+  { login: 'teacher', password: 'Orbita-Teacher-2026', name: 'Елена Кравцова', note: 'Преподаватель' },
 ];
 function renderLogin(message = '') {
   document.title = 'Вход — Орбита';
@@ -90,7 +93,7 @@ function renderLogin(message = '') {
     try {
       await api('/auth/login', { method: 'POST', body: { login: form.login.value.trim(), password: form.password.value } });
       await boot();
-      if (!location.hash || location.hash === '#/') location.hash = state.user.role === 'staff' ? '#/staff' : '#/today';
+      if (!location.hash || location.hash === '#/') location.hash = home();
     } catch (err) {
       btn.disabled = false; btn.textContent = 'Войти';
       renderLoginError(err.message);
@@ -110,7 +113,9 @@ const NAV_STUDENT = [
   ['#/requests', 'docs', 'Заявки'], ['#/campus', 'pin', 'Посещаемость'],
 ];
 const NAV_STAFF = [['#/staff', 'inbox', 'Заявки'], ['#/staff/students', 'users', 'Студенты'], ['#/staff/announce', 'megaphone', 'Объявления'], ['#/staff/schedule', 'calendar', 'Расписание'], ['#/profile', 'user', 'Профиль']];
-const nav = () => (state.user.role === 'staff' ? NAV_STAFF : NAV_STUDENT);
+const NAV_TEACHER = [['#/teacher', 'calendar', 'Расписание'], ['#/teacher/attendance', 'users', 'Посещаемость'], ['#/teacher/reschedules', 'refresh', 'Переносы'], ['#/teacher/event', 'megaphone', 'Мероприятие'], ['#/profile', 'user', 'Профиль']];
+const nav = () => (state.user.role === 'staff' ? NAV_STAFF : state.user.role === 'teacher' ? NAV_TEACHER : NAV_STUDENT);
+const home = () => (state.user.role === 'staff' ? '#/staff' : state.user.role === 'teacher' ? '#/teacher' : '#/today');
 const navSide = () => [...nav().filter(([h]) => h !== '#/profile'), ['#/notifications', 'bell', 'Лента'], ['#/profile', 'user', 'Профиль']];
 
 function renderShell() {
@@ -121,7 +126,7 @@ function renderShell() {
       <nav aria-label="Основное меню">${navSide().map(([h, i, t]) => `<a href="${h}" data-nav="${h}">${icon(i)}<span>${t}</span>${h === '#/notifications' ? '<span class="count" hidden></span>' : ''}</a>`).join('')}</nav>
       <div class="sb-foot">
         <button class="btn ghost block" data-act="palette">${icon('search')} Найти <span class="kbd" style="margin-left:auto">Ctrl K</span></button>
-        <a class="me" href="#/profile"><div class="avatar sm">${esc(initials(u))}</div><div class="grow"><b class="ellipsis" style="display:block">${esc(u.first_name)} ${esc(u.last_name)}</b><small>${u.role === 'staff' ? esc(u.position || 'Деканат') : `${esc(u.group)} · ${u.course} курс`}</small></div></a>
+        <a class="me" href="#/profile"><div class="avatar sm">${esc(initials(u))}</div><div class="grow"><b class="ellipsis" style="display:block">${esc(u.first_name)} ${esc(u.last_name)}</b><small>${u.role !== 'student' ? esc(u.position || 'Деканат') : `${esc(u.group)} · ${u.course} курс`}</small></div></a>
       </div>
     </aside>
     <div class="main">
@@ -157,9 +162,18 @@ export async function refreshBadges() {
 function match(hash) {
   const p = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   const s = state.user.role === 'student';
+  if (p[0] === 'events' && p[1]) return [Events.renderEvent, { id: p[1] }];
+  if (state.user.role === 'teacher') {
+    if (p[0] === 'teacher' && p[1] === 'attendance') return [Teacher.renderAttendance, {}];
+    if (p[0] === 'teacher' && p[1] === 'reschedules') return [Teacher.renderReschedules, {}];
+    if (p[0] === 'teacher' && p[1] === 'event') return [Teacher.renderEventNew, {}];
+    if (p[0] === 'notifications') return [Notifications.render, {}];
+    if (p[0] === 'profile') return [Profile.render, {}];
+    return [Teacher.renderSchedule, { date: p[0] === 'teacher' ? p[1] : undefined }];
+  }
   if (!s) {
     if (p[0] === 'staff' && p[1] === 'requests' && p[2]) return [Staff.renderRequest, { id: p[2] }];
-    if (p[0] === 'staff' && p[1] === 'announce') return [Staff.renderAnnounce, {}];
+    if (p[0] === 'staff' && p[1] === 'announce') return [Staff.renderAnnounce, { mode: p[2] }];
     if (p[0] === 'staff' && p[1] === 'schedule') return [Staff.renderSchedule, {}];
     if (p[0] === 'staff' && p[1] === 'students' && p[2]) return [Staff.renderStudent, { id: p[2] }];
     if (p[0] === 'staff' && p[1] === 'students') return [Staff.renderStudents, {}];
@@ -187,7 +201,7 @@ async function route() {
   const [view, params] = match(location.hash);
   const token = ++routeToken;
   const main = document.getElementById('main');
-  const hash = location.hash || (state.user.role === 'staff' ? '#/staff' : '#/today');
+  const hash = location.hash || home();
   const base = '#/' + (hash.replace(/^#\/?/, '').split('/')[0] || '');
   document.querySelectorAll('[data-nav]').forEach((a) => {
     const on = a.dataset.nav === hash || (a.dataset.nav !== '#/staff' && hash.startsWith(a.dataset.nav + '/')) || (a.dataset.nav === base && a.dataset.nav !== '#/staff') || (a.dataset.nav === '#/staff' && /^#\/staff(\/requests.*)?$/.test(hash)) || (a.dataset.nav === '#/today' && (hash === '#/' || hash === ''));

@@ -51,10 +51,7 @@ fs.mkdirSync(OUT, { recursive: true });
   await doc.waitForLoadState(); await doc.screenshot({ path: path.join(OUT, '11-mobile-document.png'), fullPage: true });
   const verifyUrl = await doc.evaluate(() => document.querySelector('.qr div').textContent.match(/D-\S+/)[0]);
   await doc.goto(`${BASE}/verify/${verifyUrl}`); await doc.screenshot({ path: path.join(OUT, '12-mobile-verify.png') });
-  // Запись на прием
-  await p.goto(BASE + '/#/requests/new/appointment'); await p.waitForSelector('[data-slot]:not([disabled])');
-  await p.click('[data-slot]:not([disabled])'); await p.selectOption('[name="topic"]', 'Стипендия');
-  await shot(p, '13-mobile-appointment'); await p.click('#submit'); await p.waitForSelector('.success');
+
   // Помощник
   await p.goto(BASE + '/#/today'); await p.waitForSelector('.fab'); await p.click('.fab');
   await p.click('[data-q="Что у меня завтра?"]'); await p.waitForSelector('.msg.bot:nth-child(3):not(#typing)');
@@ -62,6 +59,15 @@ fs.mkdirSync(OUT, { recursive: true });
   await shot(p, '14-mobile-assistant');
   await p.keyboard.press('Escape');
   await p.goto(BASE + '/#/notifications'); await p.waitForTimeout(400); await shot(p, '15-mobile-notifications');
+  // Мероприятие: добавить в календарь → предупреждение о пересечении → все равно добавить
+  await p.click('[data-cal]:not([data-added])'); await p.waitForSelector('#force'); await shot(p, '15d-mobile-event-conflict');
+  await p.click('#force'); await p.waitForTimeout(600);
+  await p.click('.notif a[href^="#/events/"]'); await p.waitForSelector('[data-cal]'); await p.waitForTimeout(300); await shot(p, '15e-mobile-event-page', true);
+  const evDate = await p.evaluate(() => document.querySelector('a[href^="#/schedule/"]').getAttribute('href'));
+  await p.goto(BASE + '/' + evDate); await p.waitForTimeout(600); await shot(p, '15f-mobile-schedule-overlap', true);
+  // Пара с заданием от преподавателя
+  const task = await p.evaluate(async () => (await (await fetch('/api/deadlines')).json()).find((d) => d.lesson_date && d.lesson_date >= new Date().toISOString().slice(0, 10)));
+  if (task) { await p.goto(BASE + '/#/schedule/' + task.lesson_date); await p.waitForTimeout(500); await p.click(`[data-lesson="${task.lesson_date}|${task.lesson_start}"]`); await p.waitForSelector('.sheet .section-title'); await p.waitForTimeout(300); await shot(p, '15g-mobile-lesson-tasks'); await p.keyboard.press('Escape'); }
   await p.goto(BASE + '/#/campus'); await p.waitForTimeout(400); await shot(p, '15b-mobile-absences', true);
   await p.goto(BASE + '/#/campus/passes'); await p.waitForTimeout(400); await shot(p, '15c-mobile-passes', true);
   await p.goto(BASE + '/#/profile'); await p.waitForTimeout(400); await shot(p, '16-mobile-profile', true);
@@ -75,7 +81,7 @@ fs.mkdirSync(OUT, { recursive: true });
   await p.goto(BASE + '/#/grades/record'); await p.waitForTimeout(400); await shot(p, '18-mobile-timur-record');
   await p.goto(BASE + '/#/requests'); await p.waitForTimeout(400);
   await p.click('a.card[href^="#/requests/Z-"]'); await p.waitForSelector('#chat');
-  await p.fill('#msg', 'Добрый день! Справку с работы принесу в четверг, скан прикладываю.'); await p.click('#chat button');
+  await p.fill('#msg', 'Добрый день! Медицинское заключение пришлю сканом до пятницы.'); await p.click('#chat button');
   await p.waitForTimeout(700); await shot(p, '19-mobile-timur-chat', true);
   // Подмена адреса: попытка открыть чужую заявку
   await p.goto(BASE + '/#/requests/Z-AAAA-BBBB'); await p.waitForSelector('.empty'); await shot(p, '20-mobile-foreign-request');
@@ -117,6 +123,9 @@ fs.mkdirSync(OUT, { recursive: true });
   await p.fill('#cm', 'Справка подготовлена, можно забрать в А-112 с 10:00 до 17:00.');
   await shot(p, '36-desktop-staff-request');
   await p.click('[data-s="ready"]'); await p.waitForTimeout(600);
+  // заявки на перенос в кабинете деканата
+  await p.goto(BASE + '/#/staff/schedule'); await p.waitForSelector('#rsq [data-ok], #rsq .empty'); await p.evaluate(() => document.querySelector('#rsq').scrollIntoView()); await shot(p, '40-desktop-staff-reschedules');
+  await p.goto(BASE + '/#/staff/announce/event'); await p.waitForSelector('#evf'); await shot(p, '41-desktop-staff-event-form');
   await p.goto(BASE + '/#/staff/students'); await p.waitForSelector('tr[data-id]'); await shot(p, '38-desktop-staff-students');
   await p.click('tr[data-id]'); await p.waitForSelector('#rt'); await p.waitForTimeout(300); await shot(p, '39-desktop-staff-student', true);
   await p.goto(BASE + '/#/staff/schedule'); await p.waitForSelector('#dayview .row, #dayview .empty');
@@ -127,6 +136,13 @@ fs.mkdirSync(OUT, { recursive: true });
   await p.click('#sc button.btn'); await p.waitForSelector('#err .form-error');
   await shot(p, '37-desktop-staff-schedule');
   await p.fill('#st', '19:00'); await p.fill('#en', '20:20'); await p.click('#sc button.btn'); await p.waitForTimeout(600);
+  // Кабинет преподавателя
+  await p.context().clearCookies(); await login(p, 'teacher');
+  await p.waitForSelector('[data-tl]'); await shot(p, '42-desktop-teacher-schedule');
+  await p.click('[data-tl]'); await p.waitForSelector('.sheet [data-tab]'); await p.waitForTimeout(300); await shot(p, '43-desktop-teacher-attendance');
+  await p.click('.sheet [data-tab="task"]'); await shot(p, '44-desktop-teacher-task');
+  await p.click('.sheet [data-tab="move"]'); await shot(p, '45-desktop-teacher-move'); await p.keyboard.press('Escape');
+  await p.goto(BASE + '/#/teacher/attendance'); await p.waitForTimeout(500); await shot(p, '46-desktop-teacher-attendance-summary');
   await p.close(); await desk.close();
   await browser.close();
   if (errors.length) { console.error('Ошибки в браузере:\n' + errors.join('\n')); process.exit(1); }

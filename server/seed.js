@@ -9,6 +9,7 @@ const DEMO_ACCOUNTS = [
   { login: 'timur', password: 'Orbita-Timur-2026', role: 'student' },
   { login: 'nika', password: 'Orbita-Nika-2026', role: 'student' },
   { login: 'dekanat', password: 'Orbita-Staff-2026', role: 'staff' },
+  { login: 'teacher', password: 'Orbita-Teacher-2026', role: 'teacher' },
 ];
 
 // Расписание групп — по открытому расписанию вуза (ФИО преподавателей исключены)
@@ -96,6 +97,11 @@ function seed(db) {
 
     // Сотрудник деканата
     insUser.run('dekanat', hashPassword(pwd.dekanat), 'staff', 'Ладогина', 'Ольга', 'Викторовна', 'Специалист по учебной работе');
+    // Преподаватель (вымышленный): ведет «Мировую экономику» в трех группах
+    const teacherId = insUser.run('teacher', hashPassword(pwd.teacher), 'teacher', 'Кравцова', 'Елена', 'Михайловна', 'Доцент кафедры мировой экономики').lastInsertRowid;
+    const TEACHES = [['2УП-05', 'Мировая экономика'], ['2МЖ-05', 'Мировая экономика'], ['1МО-01', 'Мировая экономика']];
+    const insTS = db.prepare('INSERT INTO teacher_subjects (teacher_id, group_name, subject) VALUES (?,?,?)');
+    for (const [g, subj] of TEACHES) insTS.run(teacherId, g, subj);
 
     // Расписание групп (одна пара в слот, неделя одинаковая)
     const insLesson = db.prepare('INSERT INTO lessons (group_name, weekday, pair, week, subject, kind, room, teacher, online_url) VALUES (?,?,?,?,?,?,?,?,?)');
@@ -104,7 +110,8 @@ function seed(db) {
       for (const [wd, pair, subject, kind, room] of rows) {
         if (seen.has(`${wd}-${pair}`)) continue;
         seen.add(`${wd}-${pair}`);
-        insLesson.run(g, wd, pair, 'all', subject, kind, room, '', null);
+        const teacher = TEACHES.some(([tg, ts]) => tg === g && ts === subject) ? 'Кравцова Е. М.' : '';
+        insLesson.run(g, wd, pair, 'all', subject, kind, room, teacher, null);
       }
     }
 
@@ -253,13 +260,28 @@ function seed(db) {
     }
 
     // Дедлайны групп
-    const insDl = db.prepare('INSERT INTO deadlines (group_name, discipline, title, due_at, kind) VALUES (?,?,?,?,?)');
     const dls = {
       '2УП-05': [['Сравнительная политология', 'Эссе: модели демократического транзита', 1, 'essay'], ['Китайский язык', 'Иероглифический диктант, урок 9', 3, 'test'], ['Мировая экономика', 'Кейс: торговые войны', 6, 'project'], ['Международные конфликты', 'Аналитическая записка по конфликту', 9, 'essay'], ['Английский язык', 'Презентация «Global Governance»', 12, 'project']],
       '2МЖ-05': [['Теория и практика рекламы', 'Медиаплан рекламной кампании', 0, 'project'], ['Основы теории коммуникации', 'Реферат: модели коммуникации', 4, 'essay'], ['Немецкий язык', 'Контрольная: Perfekt', 8, 'test'], ['Современная пресс-служба', 'Пресс-релиз к мероприятию', 11, 'project']],
       '1МО-01': [['Японский язык', 'Кандзи: урок 6', 2, 'homework'], ['История Востока', 'Доклад о реформах Мэйдзи', 7, 'essay'], ['Теория права и правовые системы современности', 'Тест по источникам права', 10, 'test']],
     };
-    for (const [g, list] of Object.entries(dls)) for (const [disc, title, off, kind] of list) insDl.run(g, disc, title, dt(off, off === 0 ? '23:59' : '18:00'), kind);
+    // Задание привязано к ближайшей паре по дисциплине (если пара есть до срока), дедлайн — к заданию
+    const insDl2 = db.prepare('INSERT INTO deadlines (group_name, discipline, title, due_at, kind, description, lesson_date, lesson_start, teacher_id) VALUES (?,?,?,?,?,?,?,?,?)');
+    const lessonBefore = (g, disc, off) => {
+      for (let i = Math.min(off, 6); i >= -6; i--) {
+        const day = A.addDays(today, i);
+        const l = lessonsOn(g, day).find((x) => x.subject === disc);
+        if (l) return { date: A.isoDate(day), start: A.pairsFor(g)[l.pair][0] };
+      }
+      return null;
+    };
+    for (const [g, list] of Object.entries(dls)) for (const [disc, title, off, kind, desc] of list) {
+      const lsn = lessonBefore(g, disc, off);
+      const tid = TEACHES.some(([tg, ts]) => tg === g && ts === disc) ? teacherId : null;
+      insDl2.run(g, disc, title, dt(off, off === 0 ? '23:59' : '18:00'), kind, desc || null, lsn?.date || null, lsn?.start || null, tid);
+    }
+    // Самостоятельный дедлайн без пары
+    insDl2.run('2УП-05', 'Учебный офис', 'Выбрать дисциплины по выбору на весну', dt(10, '23:59'), 'admin', 'Выбор в разделе «Учебный план».', null, null, null);
     const anna = db.prepare("SELECT id FROM users WHERE login='anna'").get().id;
     const timur = db.prepare("SELECT id FROM users WHERE login='timur'").get().id;
     const firstAnnaDl = db.prepare("SELECT id FROM deadlines WHERE group_name='2УП-05' ORDER BY due_at LIMIT 1").get().id;
@@ -289,13 +311,51 @@ function seed(db) {
     insEv.run(rid, 'message', null, 'student', 'Анна Ветрова', 'Спасибо! Нужно ли приносить оригинал чека?', ago(19));
     insEv.run(rid, 'message', null, 'staff', staffName, 'Достаточно скана — он уже приложен. Оригинал храните у себя.', ago(18));
 
-    rid = insReq.run(publicId('Z'), timur, 'individual_plan', 'Индивидуальный график', JSON.stringify({ reason: 'Работа по специальности', details: 'Работаю аналитиком на полставки, прошу свободное посещение по вторникам.' }), 'need_info', ago(50), ago(26), d(4), staffName, null).lastInsertRowid;
+    rid = insReq.run(publicId('Z'), timur, 'academic_leave', 'Академический отпуск', JSON.stringify({ reason: 'Семейные обстоятельства', from: d(14), details: 'Прошу предоставить академический отпуск на один год в связи с уходом за родственником.' }), 'need_info', ago(50), ago(26), d(4), staffName, null).lastInsertRowid;
     insEv.run(rid, 'status', 'submitted', 'student', null, null, ago(50));
-    insEv.run(rid, 'status', 'need_info', 'staff', staffName, 'Пожалуйста, приложите справку с места работы с указанием графика. Ее можно принести в деканат (каб. А-112) или отправить скан ответом сюда.', ago(26));
+    insEv.run(rid, 'status', 'need_info', 'staff', staffName, 'Прошу вас по возможности предоставить подтверждающие документы (например, медицинское заключение о состоянии родственника). Без них заявление не сможет рассмотреть комиссия. Скан можно отправить ответом сюда.', ago(26));
 
     rid = insReq.run(publicId('Z'), timur, 'stipend_cert', 'Справка о размере стипендии', JSON.stringify({ period: '6 месяцев', purpose: 'Для налогового вычета' }), 'rejected', ago(300), ago(280), null, staffName, null).lastInsertRowid;
     insEv.run(rid, 'status', 'submitted', 'student', null, null, ago(300));
     insEv.run(rid, 'status', 'rejected', 'staff', staffName, 'Вы обучаетесь по договору, стипендия за этот период не начислялась. Если нужна справка об оплате обучения — напишите вопрос в деканат.', ago(280));
+
+    // Мероприятия: публикуются в ленте, их можно добавить в свой календарь
+    const insEvent = db.prepare('INSERT INTO events (title, description, place, start_at, end_at, audience, organizer, author_id, created_at) VALUES (?,?,?,?,?,?,?,?,?)');
+    const evNote = db.prepare("INSERT INTO notifications (audience, category, title, body, link, important, author, created_at) VALUES (?, 'event', ?, ?, ?, 0, ?, ?)");
+    const addEvent = (title, desc, place, date, start, end, audience, organizer, author, h) => {
+      const id = insEvent.run(title, desc, place, `${date}T${start}`, `${date}T${end}`, audience, organizer, author, ago(h)).lastInsertRowid;
+      const dd = date.split('-').reverse().join('.');
+      evNote.run(audience, title, `${dd}, ${start}–${end} · ${place}`, `#/events/${id}`, organizer, ago(h));
+      return id;
+    };
+    // Конференция намеренно ставится на время пар группы 2УП-05 — чтобы показать предупреждение о пересечении
+    let cd = A.addDays(today, 1);
+    while (A.weekday(cd) > 6 || !lessonsOn('2УП-05', cd).some((l) => l.pair === 3)) cd = A.addDays(cd, 1);
+    addEvent('Научная студенческая конференция «Мир в 2030 году»',
+      'Ежегодная конференция студентов и аспирантов. Секции: международная безопасность, мировая экономика, медиа и коммуникации, регионоведение.\n\nПрограмма: пленарное заседание, работа секций, вручение дипломов лучшим докладчикам. Участие в качестве слушателя свободное, для выступления нужна регистрация до начала конференции.',
+      'Актовый зал (Корпус МО)', A.isoDate(cd), '12:10', '15:50', 'all', 'Научное студенческое общество', null, 20);
+    let ed = A.addDays(today, 3);
+    while (A.weekday(ed) > 5) ed = A.addDays(ed, 1);
+    addEvent('Открытая лекция «Дипломатия в цифровую эпоху»',
+      'Лекция приглашенного эксперта о том, как социальные сети и большие данные меняют работу дипломатов. После лекции — ответы на вопросы.',
+      'зал 2 (Корпус МО)', A.isoDate(ed), '18:00', '19:30', 'all', 'Деканат', null, 30);
+    let md = A.addDays(today, 5);
+    while (A.weekday(md) !== 6) md = A.addDays(md, 1);
+    addEvent('Мастер-класс «Как читать экономические новости»',
+      'Практическое занятие для студентов МЖ: откуда берутся цифры в новостях, как проверять данные и не путать инфляцию с ростом цен. Возьмите ноутбук.',
+      '3019 (Корпус МЭО)', A.isoDate(md), '14:30', '16:00', 'faculty:Факультет международной журналистики', 'Кравцова Е. М.', teacherId, 6);
+    // Анна уже добавила открытую лекцию в свой календарь
+    db.prepare('INSERT INTO user_events (user_id, event_id, added_at) VALUES (?,?,?)').run(anna, 2, ago(4));
+
+    // Заявка преподавателя на перенос пары — ждет решения деканата
+    let rsd = A.addDays(today, 1);
+    while (!lessonsOn('2МЖ-05', rsd).some((l) => l.subject === 'Мировая экономика')) rsd = A.addDays(rsd, 1);
+    const rl = lessonsOn('2МЖ-05', rsd).find((l) => l.subject === 'Мировая экономика');
+    let rtd = A.addDays(rsd, 1);
+    while (A.weekday(rtd) > 5) rtd = A.addDays(rtd, 1);
+    db.prepare(`INSERT INTO reschedules (teacher_id, group_name, subject, kind, room, from_date, from_start, from_end, from_pair, to_date, to_start, to_end, to_room, reason, status, created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?)`).run(teacherId, '2МЖ-05', rl.subject, rl.kind, rl.room, A.isoDate(rsd), A.PAIRS[rl.pair][0], A.PAIRS[rl.pair][1], rl.pair,
+      A.isoDate(rtd), '19:00', '20:20', rl.room, 'Участвую в отраслевой конференции в первой половине дня', ago(3));
   });
 }
 

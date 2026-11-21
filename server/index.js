@@ -6,6 +6,7 @@ const { open } = require('./db');
 const { seed } = require('./seed');
 const { createAuth } = require('./auth');
 const { createApi } = require('./api');
+const { createCampusApi } = require('./campus-api');
 const D = require('./documents');
 const { createLite } = require('./lite');
 
@@ -36,6 +37,7 @@ function createApp(db) {
     res.setHeader('Cache-Control', 'no-store');
     next();
   });
+  app.use('/api', createCampusApi(db, auth));
   app.use('/api', createApi(db, auth));
 
   app.use('/lite', createLite(db, auth));

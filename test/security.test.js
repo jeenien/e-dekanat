@@ -107,12 +107,12 @@ test('сценарий: электронная справка готова ср�
 
 test('сценарий: проверка формы и работа деканата со статусом', async () => {
   const timur = await login('timur');
-  const bad = await call('/api/requests', { method: 'POST', cookie: timur, body: { type: 'military', fields: {} } });
-  assert.equal(bad.status, 422); assert.ok(bad.json.fields.office);
-  const ok = await call('/api/requests', { method: 'POST', cookie: timur, body: { type: 'military', fields: { office: 'Центральный район', extra: '<script>' } } });
+  const bad = await call('/api/requests', { method: 'POST', cookie: timur, body: { type: 'stipend_cert', fields: {} } });
+  assert.equal(bad.status, 422); assert.ok(bad.json.fields.period);
+  const ok = await call('/api/requests', { method: 'POST', cookie: timur, body: { type: 'stipend_cert', fields: { period: '3 месяца', purpose: 'Другое', extra: '<script>' } } });
   assert.equal(ok.status, 201); assert.equal(ok.json.status, 'submitted');
   const created = (await call(`/api/requests/${ok.json.id}`, { cookie: timur })).json;
-  assert.deepEqual(Object.keys(created.payload), ['office'], 'лишние поля отбрасываются');
+  assert.deepEqual(Object.keys(created.payload).sort(), ['period', 'purpose'], 'лишние поля отбрасываются');
 
   const staff = await login('dekanat');
   assert.equal((await call(`/api/staff/requests/${ok.json.id}/status`, { method: 'POST', cookie: staff, body: { status: 'rejected' } })).status, 400, 'отказ без причины запрещен');
@@ -120,9 +120,9 @@ test('сценарий: проверка формы и работа декана
   const after = (await call(`/api/requests/${ok.json.id}`, { cookie: timur })).json;
   assert.equal(after.status, 'ready');
   const notes = (await call('/api/notifications', { cookie: timur })).json;
-  assert.ok(notes.some((n) => n.title.includes('Справка в военкомат')));
+  assert.ok(notes.some((n) => n.title.includes('Справка о размере стипендии')));
   const anna = await login('anna');
-  assert.ok(!(await call('/api/notifications', { cookie: anna })).json.some((n) => n.title.includes('Справка в военкомат')), 'уведомление Тимура не видно Анне');
+  assert.ok(!(await call('/api/notifications', { cookie: anna })).json.some((n) => n.title.includes('Справка о размере стипендии')), 'уведомление Тимура не видно Анне');
 });
 
 test('посещаемость и СКУД: студент видит только свое, деканат — всех', async () => {
@@ -197,6 +197,68 @@ test('деканат ставит пару в любое время, перес�
   const anna = await login('anna');
   const sched = (await call(`/api/schedule?from=${day.date}&days=1`, { cookie: anna })).json.days[0];
   assert.ok(sched.lessons.some((l) => l.start === '20:00' && l.change?.type === 'extra'));
+});
+
+test('мероприятия: добавление в календарь с предупреждением о пересечении', async () => {
+  const anna = await login('anna');
+  const feed = (await call('/api/notifications', { cookie: anna })).json.filter((n) => n.event_id);
+  assert.ok(feed.length >= 2);
+  const conf = feed.find((n) => n.title.startsWith('Научная'));
+  const first = await call(`/api/events/${conf.event_id}/add`, { method: 'POST', cookie: anna, body: {} });
+  assert.equal(first.status, 409); assert.ok(first.json.conflicts.length >= 1);
+  assert.equal((await call(`/api/events/${conf.event_id}/add`, { method: 'POST', cookie: anna, body: { force: true } })).status, 200);
+  const ev = (await call(`/api/events/${conf.event_id}`, { cookie: anna })).json;
+  const day = (await call(`/api/schedule?from=${ev.start_at.slice(0, 10)}&days=1`, { cookie: anna })).json.days[0];
+  assert.ok(day.lessons.some((l) => l.event_id === conf.event_id), 'мероприятие в расписании');
+  // мероприятие факультета МЖ не видно студентке ФУП
+  const timur = await login('timur');
+  const mz = (await call('/api/notifications', { cookie: timur })).json.find((n) => n.event_id && n.title.startsWith('Мастер-класс'));
+  assert.ok(mz); assert.equal((await call(`/api/events/${mz.event_id}`, { cookie: anna })).status, 404);
+});
+
+test('преподаватель: посещаемость, задания, перенос через деканат', async () => {
+  const teacher = await login('teacher');
+  const anna = await login('anna');
+  assert.equal((await call('/api/teacher/schedule', { cookie: anna })).status, 403);
+  const A = require('../server/academic');
+  let found = null;
+  for (let i = -6; i <= 0 && !found; i++) {
+    const days = (await call(`/api/teacher/schedule?from=${A.isoDate(A.addDays(new Date(), i))}`, { cookie: teacher })).json.days;
+    for (const d of days) { const l = d.lessons.find((x) => x.group === '2УП-05'); if (l && d.date <= A.isoDate(new Date())) { found = { ...l, date: d.date }; break; } }
+  }
+  assert.ok(found, 'есть прошедшая пара');
+  const body = { group: '2УП-05', date: found.date, start: found.start };
+  const before = (await call('/api/attendance', { cookie: anna })).json.absences.hours;
+  const me = (await call('/api/auth/me', { cookie: anna })).json.user;
+  assert.equal((await call('/api/teacher/attendance', { method: 'POST', cookie: teacher, body: { ...body, absent: [me.id] } })).status, 200);
+  assert.equal((await call('/api/attendance', { cookie: anna })).json.absences.hours, before + 2);
+  assert.equal((await call('/api/teacher/attendance', { method: 'POST', cookie: teacher, body: { ...body, group: '2МЖ-05', absent: [] } })).status, 404, 'чужая пара');
+  // задание к паре появляется у студентки в дедлайнах и в карточке пары
+  assert.equal((await call('/api/teacher/assignments', { method: 'POST', cookie: teacher, body: { ...body, title: 'Тестовое задание', due_date: A.isoDate(A.addDays(new Date(), 5)), due_time: '18:00' } })).status, 201);
+  const dl = (await call('/api/deadlines', { cookie: anna })).json.find((d) => d.title === 'Тестовое задание');
+  assert.equal(dl.lesson_date, found.date);
+  const lesson = (await call(`/api/lesson?date=${found.date}&start=${found.start}`, { cookie: anna })).json;
+  assert.ok(lesson.tasks.some((t) => t.title === 'Тестовое задание'));
+  // перенос: деканат одобряет, у группы появляется изменение
+  const staff = await login('dekanat');
+  const pending = (await call('/api/staff/reschedules', { cookie: staff })).json.find((x) => x.status === 'pending');
+  assert.ok(pending);
+  assert.equal((await call(`/api/staff/reschedules/${pending.id}`, { method: 'POST', cookie: staff, body: { decision: 'reject' } })).status, 400, 'отказ без причины');
+  assert.equal((await call(`/api/staff/reschedules/${pending.id}`, { method: 'POST', cookie: staff, body: { decision: 'approve' } })).status, 200);
+  const timur = await login('timur');
+  const moved = (await call(`/api/schedule?from=${pending.to_date}&days=1`, { cookie: timur })).json.days[0].lessons.find((l) => l.change?.type === 'moved_in');
+  assert.equal(moved.start, pending.to_start);
+  assert.ok((await call('/api/notifications', { cookie: teacher })).json.some((n) => n.title === 'Заявка на перенос одобрена'));
+});
+
+test('типовое заявление в PDF только по своей заявке', async () => {
+  const timur = await login('timur');
+  const anna = await login('anna');
+  const req = (await call('/api/requests', { cookie: timur })).json.find((r) => r.type === 'academic_leave');
+  const res = await fetch(`${base}/api/statements/academic_leave.pdf?request=${req.id}`, { headers: { Cookie: timur } });
+  assert.equal(res.status, 200); assert.equal(res.headers.get('content-type'), 'application/pdf');
+  assert.equal((await call(`/api/statements/academic_leave.pdf?request=${req.id}`, { cookie: anna })).status, 404);
+  assert.equal((await call('/api/statements/study_cert.pdf', { cookie: anna })).status, 404);
 });
 
 test('выход завершает сессию', async () => {
