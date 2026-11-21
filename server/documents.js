@@ -96,4 +96,4 @@ function renderVerify(db, code) {
   <div class="paper" style="margin-top:24px;text-align:center"><div class="head" style="justify-content:center">${LOGO}<div style="text-align:left"><b>Проверка документа</b><small>Орбита · концепт цифрового деканата (не официальный сервис)</small></div></div>${inner}</div></body></html>`;
 }
 
-module.exports = { renderDocument, renderVerify, maskName };
+module.exports = { renderDocument, renderVerify, maskName, facultyGenitive };

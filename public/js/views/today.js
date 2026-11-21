@@ -1,6 +1,6 @@
 // «Сегодня» — главный экран: что сейчас, что дальше, что горит.
 import { api, esc, icon, fmt, parseISO, todayISO, minutes, empty, plural, statusChip, STATUS_META, kindClass, toast } from '../lib.js';
-import { lessonHtml, changeLabel } from './schedule.js';
+import { changeLabel, dayList, bindScheduleClicks } from './schedule.js';
 
 function greeting() {
   const h = new Date().getHours();
@@ -39,7 +39,7 @@ export function deadlineList(list, compact = false) {
   return `<div>${list.map((d) => {
     const urgent = !d.done && new Date(d.due_at) - Date.now() < 48 * 3600e3;
     return `<div class="dl ${d.done ? 'done' : ''}"><button class="check ${d.done ? 'on' : ''}" data-dl="${d.id}" aria-pressed="${d.done}" aria-label="${d.done ? 'Отметить невыполненным' : 'Отметить выполненным'}: ${esc(d.title)}">${d.done ? icon('check', 'sm') : ''}</button>
-      <div class="grow"><div class="t">${esc(d.title)}</div><div class="s">${esc(d.discipline)}</div></div>
+      <div class="grow"><div class="t">${esc(d.title)}</div><div class="s">${esc(d.discipline)}</div>${d.lesson_date ? `<a class="lesson-link" href="#/schedule/${d.lesson_date}">${icon('calendar', 'sm')} к паре ${fmt.wd(parseISO(d.lesson_date))}, ${fmt.dmShort(parseISO(d.lesson_date))} · ${d.lesson_start}</a>` : ''}</div>
       <div style="text-align:right"><span class="chip ${d.done ? 'ok' : urgent ? 'bad' : ''}">${d.done ? 'готово' : esc(fmt.until(d.due_at))}</span>${compact ? '' : `<div class="xs faint" style="margin-top:4px">${esc(fmt.dateTime(d.due_at))}</div>`}</div></div>`;
   }).join('')}</div>`;
 }
@@ -109,12 +109,12 @@ export async function render(ctx) {
         ${nowCard(today, d.next_days)}
         <nav class="quick" aria-label="Быстрые действия">
           <a href="#/requests/new/study_cert"><span class="ico">${icon('docs')}</span>Справка</a>
-          <a href="#/requests/new/appointment"><span class="ico">${icon('clock')}</span>Запись в деканат</a>
+          <a href="#/requests/new/transcript"><span class="ico">${icon('grades')}</span>Выписка</a>
           <a href="#/grades"><span class="ico">${icon('trend')}</span>Мои баллы</a>
           <a href="#/requests/new/question"><span class="ico">${icon('message')}</span>Вопрос деканату</a>
         </nav>
         <section class="card"><div class="card-h"><h2>Пары сегодня</h2><a href="#/schedule">Вся неделя ${icon('chevronRight', 'sm')}</a></div>
-          ${today.lessons.length ? `<div class="day">${today.lessons.map((l) => lessonHtml(l, today.date)).join('')}</div>` : empty('coffee', 'Сегодня свободный день', 'Можно заняться дедлайнами или отдохнуть.')}</section>
+          ${today.lessons.length ? dayList(today) : empty('coffee', 'Сегодня свободный день', 'Можно заняться дедлайнами или отдохнуть.')}</section>
         <section class="card"><div class="card-h"><h2>Дедлайны</h2><span class="chip">${d.deadlines.filter((x) => !x.done).length} открыто</span></div><div id="dls">${deadlineList(d.deadlines, true)}</div></section>
       </div>
       <div class="stack">
@@ -126,7 +126,7 @@ export async function render(ctx) {
             <div class="stat"><b style="color:${g.risks ? 'var(--bad)' : 'var(--ok)'}">${g.risks}</b><span>в зоне риска</span></div>
             <div class="stat"><b style="color:${g.debts ? 'var(--bad)' : 'var(--ok)'}">${g.debts}</b><span>${plural(g.debts, 'долг', 'долга', 'долгов')}</span></div>
           </div>
-          ${u.funding === 'Бюджет' ? `<div class="row between" style="margin-top:10px;padding:12px 14px;border-radius:var(--r);background:var(--surface-2);border:1px solid var(--glass-border)"><span class="row" style="gap:8px">${icon('wallet')}<b>Стипендия</b></span><span class="chip ${u.stipend && u.stipend !== 'Не назначена' ? 'ok' : ''}">${esc(u.stipend && u.stipend !== 'Не назначена' ? u.stipend : 'нет')}</span></div>` : ''}
+          ${u.funding === 'Бюджет' ? `<div class="row between wrap" style="margin-top:10px;gap:6px;padding:12px 14px;border-radius:var(--r);background:var(--surface-2);border:1px solid var(--glass-border)"><span class="row" style="gap:8px">${icon('wallet')}<b>Стипендия</b></span><span class="chip ${u.stipend && u.stipend !== 'Не назначена' ? 'ok' : ''}">${esc(u.stipend && u.stipend !== 'Не назначена' ? u.stipend : 'нет')}</span></div>` : ''}
           ${firstExam ? `<a class="li" href="#/grades/session" style="padding:12px 0 0;border:0;min-height:0"><div class="ico">${icon('target')}</div><div class="grow"><div class="t">${esc(d.session.name)}</div><div class="s">Первый экзамен ${fmt.dmShort(parseISO(firstExam.date))} · ${fmt.until(firstExam.date)}</div></div>${icon('chevronRight')}</a>` : ''}
         </section>
         <section class="card pad-0"><div class="card-h" style="padding:16px 16px 0"><h2>Заявки</h2><a href="#/requests">Все ${icon('chevronRight', 'sm')}</a></div>
@@ -146,6 +146,7 @@ export async function render(ctx) {
     box.innerHTML = deadlineList(list, true); bindDeadlines(box, reloadDl);
   };
   bindDeadlines(ctx.el.querySelector('#dls'), reloadDl);
+  bindScheduleClicks(ctx.el);
 }
 
 export { kindClass };

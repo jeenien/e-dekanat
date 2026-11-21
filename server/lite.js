@@ -31,8 +31,8 @@ footer{font-size:13px;color:#566079;text-align:center;margin-top:24px}
 
 function page(req, title, body) {
   const u = req.user;
-  const nav = !u ? '' : u.role === 'staff'
-    ? '<nav><a href="/lite">Заявки</a><a href="/lite/news">Лента</a></nav>'
+  const nav = !u ? '' : u.role !== 'student'
+    ? '<nav><a href="/lite">Главная</a><a href="/lite/news">Лента</a></nav>'
     : '<nav><a href="/lite">Сегодня</a><a href="/lite/schedule">Расписание</a><a href="/lite/grades">Учеба</a><a href="/lite/requests">Заявки</a><a href="/lite/attendance">Посещаемость</a><a href="/lite/news">Лента</a></nav>';
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex"><title>${esc(title)} — Орбита (облегченная)</title><style>${CSS}</style></head><body>
@@ -80,6 +80,12 @@ function createLite(db, auth) {
   r.use((req, res, next) => (req.user ? next() : loginPage(req, res)));
 
   r.get('/', (req, res) => {
+    if (req.user.role === 'teacher') {
+      const pairs = db.prepare('SELECT group_name, subject FROM teacher_subjects WHERE teacher_id = ?').all(req.user.id);
+      const dayOf = (iso) => pairs.flatMap((p) => S.daySchedule(db, p.group_name, iso).lessons.filter((l) => l.subject === p.subject).map((l) => ({ ...l, subject: `${l.subject} · ${p.group_name}` }))).sort((x, y) => x.start.localeCompare(y.start));
+      const t0 = A.isoDate(new Date()), t1 = A.isoDate(A.addDays(new Date(), 1));
+      return res.type('html').send(page(req, 'Мои пары', `<h2>Сегодня</h2><div class="box">${lessonsHtml({ lessons: dayOf(t0) })}</div><h2>Завтра</h2><div class="box">${lessonsHtml({ lessons: dayOf(t1) })}</div><p class="muted">Посещаемость, задания и переносы — в полной версии.</p>`));
+    }
     if (req.user.role === 'staff') {
       const rows = db.prepare(`SELECT r.public_id, r.title, r.status, r.updated_at, u.last_name, u.first_name, s.group_name FROM requests r
         JOIN users u ON u.id = r.student_id JOIN students s ON s.user_id = r.student_id WHERE r.status IN ('submitted','in_progress','need_info') ORDER BY r.updated_at DESC`).all();
@@ -93,7 +99,7 @@ function createLite(db, auth) {
     const abs = S.absencesFor(db, req.user.id);
     const dls = S.deadlinesFor(db, req.user.id, st.group).filter((d) => !d.done && new Date(d.due_at) > Date.now()).slice(0, 5);
     const reqs = db.prepare("SELECT public_id, title, status FROM requests WHERE student_id = ? AND status NOT IN ('done','rejected') ORDER BY updated_at DESC").all(req.user.id);
-    const unread = S.notificationsFor(db, req.user.id, st).filter((n) => !n.read).length;
+    const unread = S.notificationsFor(db, req.user.id, st, req.user.role).filter((n) => !n.read).length;
     res.type('html').send(page(req, `Здравствуйте, ${st.first_name}`, `
       <p class="muted">${esc(st.group)} · ${st.course} курс · ${esc(day(today))}</p>
       ${retakes.map((x) => `<div class="box warn">У вас пересдача: ${esc(x.discipline)} — ${esc(day(x.date))}, ${x.start}, ${esc(x.room)}</div>`).join('')}
@@ -153,7 +159,7 @@ function createLite(db, auth) {
 
   r.get('/news', (req, res) => {
     const st = req.user.role === 'student' ? S.getStudent(db, req.user.id) : null;
-    const list = S.notificationsFor(db, req.user.id, st).slice(0, 40);
+    const list = S.notificationsFor(db, req.user.id, st, req.user.role).slice(0, 40);
     res.type('html').send(page(req, 'Лента', list.length ? list.map((n) => `<div class="box"><b>${esc(n.title)}</b>${n.read ? '' : ' <span class="warn">• новое</span>'}<div>${esc(n.body)}</div><div class="muted">${esc(n.author || '')} · ${esc(dt(n.created_at))}</div></div>`).join('') : '<p>Пока пусто.</p>'));
   });
 

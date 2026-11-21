@@ -4,6 +4,7 @@ const VALUES = { electronic: 'электронная', paper: 'бумажная'
 import { api, esc, icon, fmt, parseISO, empty, statusChip, toast, todayISO, plural } from '../lib.js';
 import { hmin, campusBars, passDays, absenceList } from './campus.js';
 import { absenceMeter, absenceText } from './today.js';
+import { eventForm, bindEventForm } from './events.js';
 
 const FILTERS = [['', 'Все'], ['submitted', 'Новые'], ['in_progress', 'В работе'], ['need_info', 'Ждут студента'], ['ready', 'Готовы'], ['done', 'Завершены'], ['rejected', 'Отклонены']];
 let filter = 'submitted';
@@ -71,18 +72,22 @@ export async function renderRequest(ctx) {
 }
 
 export async function renderAnnounce(ctx) {
-  ctx.setTitle('Объявление');
+  ctx.setTitle('Объявления и мероприятия');
   const groups = await api('/staff/groups');
   if (!ctx.isCurrent()) return;
   const faculties = [...new Set(groups.map((g) => g.faculty))];
-  ctx.el.innerHTML = `<div class="page grid c2" style="align-items:start"><form class="card" id="an" novalidate>
-    <div class="field"><label for="aud">Кому</label><select class="input" id="aud"><option value="all">Всем студентам</option>
-      ${faculties.map((f) => `<option value="faculty:${esc(f)}">${esc(f)}</option>`).join('')}${groups.map((g) => `<option value="group:${esc(g.group)}">Группа ${esc(g.group)}</option>`).join('')}</select></div>
+  const aud = [['all', 'Всем студентам'], ...faculties.map((f) => [`faculty:${f}`, f]), ...groups.map((g) => [`group:${g.group}`, `Группа ${g.group}`])];
+  const mode = ctx.params.mode === 'event' ? 'event' : 'news';
+  ctx.el.innerHTML = `<div class="page stack"><div class="seg" style="max-width:420px"><button class="${mode === 'news' ? 'on' : ''}" data-m="news">Объявление</button><button class="${mode === 'event' ? 'on' : ''}" data-m="event">Мероприятие</button></div>
+    <div class="grid c2" style="align-items:start">${mode === 'event' ? eventForm(aud) : `<form class="card" id="an" novalidate>
+    <div class="field"><label for="aud">Кому</label><select class="input" id="aud">${aud.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select></div>
     <div class="field"><label for="tt">Заголовок</label><input class="input" id="tt" maxlength="140"></div>
     <div class="field"><label for="bd">Текст</label><textarea class="input" id="bd" maxlength="3000"></textarea></div>
     <label class="row small" style="margin-bottom:14px"><input type="checkbox" id="imp"> Важное (выделить в ленте)</label>
-    <button class="btn">${icon('megaphone')} Опубликовать</button></form>
-    <div class="card small muted"><b style="color:var(--text)">Подсказка</b><p style="margin-top:6px">Объявление сразу появится в ленте выбранных студентов и на их главном экране. Пишите коротко: что, когда, что нужно сделать.</p></div></div>`;
+    <button class="btn">${icon('megaphone')} Опубликовать</button></form>`}
+    <div class="card small muted"><b style="color:var(--text)">Подсказка</b><p style="margin-top:6px">${mode === 'event' ? 'Мероприятие появится в ленте с кнопкой «Добавить в календарь» и отдельной страницей с описанием. Студенту покажут, если оно пересекается с его парами.' : 'Объявление сразу появится в ленте выбранных студентов и на их главном экране. Пишите коротко: что, когда, что нужно сделать.'}</p></div></div></div>`;
+  ctx.el.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { location.hash = b.dataset.m === 'event' ? '#/staff/announce/event' : '#/staff/announce'; });
+  if (mode === 'event') { bindEventForm(ctx.el, (id) => { location.hash = `#/events/${id}`; }); return; }
   ctx.el.querySelector('#an').onsubmit = async (e) => {
     e.preventDefault();
     try { await api('/staff/notifications', { method: 'POST', body: { audience: ctx.el.querySelector('#aud').value, title: ctx.el.querySelector('#tt').value, body: ctx.el.querySelector('#bd').value, important: ctx.el.querySelector('#imp').checked } }); toast('Опубликовано'); e.target.reset(); }
@@ -90,11 +95,27 @@ export async function renderAnnounce(ctx) {
   };
 }
 
+// Заявки преподавателей на перенос пар
+async function rescheduleQueue(root) {
+  const list = await api('/staff/reschedules');
+  const ST = { pending: ['warn', 'ждет решения'], approved: ['ok', 'одобрено'], rejected: ['bad', 'отклонено'] };
+  root.innerHTML = list.length ? list.map((x) => `<div style="padding:12px 0;border-top:1px solid var(--line)"><div class="row between" style="align-items:flex-start"><div><b>${esc(x.subject)}</b> · ${esc(x.group_name)}<div class="small muted">${esc(x.teacher)}: ${fmt.dmShort(parseISO(x.from_date))} ${x.from_start} → <b>${fmt.dmShort(parseISO(x.to_date))} ${x.to_start}–${x.to_end}</b>, ${esc(x.to_room || '')}</div>
+      <div class="xs faint">Причина: ${esc(x.reason || '—')}</div></div><span class="chip ${ST[x.status][0]}">${ST[x.status][1]}</span></div>
+      ${x.status === 'pending' ? `<div class="row wrap" style="margin-top:8px"><input class="input" data-c="${x.id}" placeholder="Комментарий (обязателен при отказе)" style="flex:1;min-width:180px;min-height:40px"><button class="btn sm" data-ok="${x.id}">${icon('check', 'sm')} Одобрить</button><button class="btn sm danger" data-no="${x.id}">Отклонить</button></div>` : ''}</div>`).join('')
+    : empty('checkCircle', 'Заявок на перенос нет');
+  const decide = async (id, decision) => {
+    try { await api(`/staff/reschedules/${id}`, { method: 'POST', body: { decision, comment: root.querySelector(`[data-c="${id}"]`)?.value || '' } }); toast(decision === 'approve' ? 'Перенос одобрен, группа и преподаватель уведомлены' : 'Заявка отклонена'); rescheduleQueue(root); }
+    catch (err) { toast(err.message, 'bad'); }
+  };
+  root.querySelectorAll('[data-ok]').forEach((b) => b.onclick = () => decide(b.dataset.ok, 'approve'));
+  root.querySelectorAll('[data-no]').forEach((b) => b.onclick = () => decide(b.dataset.no, 'reject'));
+}
+
 export async function renderSchedule(ctx) {
   ctx.setTitle('Расписание');
   const groups = await api('/staff/groups');
   if (!ctx.isCurrent()) return;
-  ctx.el.innerHTML = `<div class="page grid c2" style="align-items:start"><form class="card" id="sc" novalidate>
+  ctx.el.innerHTML = `<div class="page stack"><div class="grid c2" style="align-items:start"><form class="card" id="sc" novalidate>
     <div id="err"></div>
     <div class="grid c2" style="gap:0 12px"><div class="field"><label for="g">Группа</label><select class="input" id="g">${groups.map((g) => `<option>${esc(g.group)}</option>`).join('')}</select></div>
     <div class="field"><label for="d">Дата</label><input class="input" type="date" id="d" value="${todayISO()}"></div></div>
@@ -111,7 +132,8 @@ export async function renderSchedule(ctx) {
     <div class="field"><label for="nt">Комментарий для студентов</label><input class="input" id="nt" maxlength="200"></div>
     <button class="btn">Сохранить и уведомить группу</button></form>
     <section class="card"><div class="card-h"><h2>Пары группы в этот день</h2></div><div id="dayview"></div>
-      <p class="xs faint" style="margin-top:10px">Новую пару нельзя поставить на время, занятое другой парой: система подскажет, с чем она пересекается.</p></section></div>`;
+      <p class="xs faint" style="margin-top:10px">Новую пару нельзя поставить на время, занятое другой парой: система подскажет, с чем она пересекается.</p></section></div>
+    <section class="card"><div class="card-h"><h2>Заявки преподавателей на перенос</h2></div><div id="rsq"></div></section></div>`;
   let type = 'extra';
   const form = ctx.el.querySelector('#sc');
   const v = (id) => form.querySelector(id).value;
@@ -146,7 +168,7 @@ export async function renderSchedule(ctx) {
     try { await api('/staff/schedule-changes', { method: 'POST', body }); toast('Сохранено, группа уведомлена'); loadDay(); }
     catch (err) { showErr(err.message); form.querySelector('#err').scrollIntoView({ block: 'nearest' }); }
   };
-  applyType(); loadDay();
+  applyType(); loadDay(); rescheduleQueue(ctx.el.querySelector('#rsq'));
 }
 
 // ---------- Посещаемость студентов (СКУД и пропуски) ----------

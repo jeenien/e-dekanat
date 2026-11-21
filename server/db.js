@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
   login TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('student','staff')),
+  role TEXT NOT NULL CHECK (role IN ('student','staff','teacher')),
   last_name TEXT NOT NULL, first_name TEXT NOT NULL, middle_name TEXT,
   position TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -65,7 +65,34 @@ CREATE TABLE IF NOT EXISTS final_grades (
 CREATE TABLE IF NOT EXISTS deadlines (
   id INTEGER PRIMARY KEY,
   group_name TEXT NOT NULL, discipline TEXT NOT NULL, title TEXT NOT NULL,
-  due_at TEXT NOT NULL, kind TEXT NOT NULL
+  due_at TEXT NOT NULL, kind TEXT NOT NULL,
+  description TEXT, lesson_date TEXT, lesson_start TEXT, teacher_id INTEGER
+);
+CREATE TABLE IF NOT EXISTS teacher_subjects (
+  teacher_id INTEGER NOT NULL REFERENCES users(id),
+  group_name TEXT NOT NULL, subject TEXT NOT NULL,
+  PRIMARY KEY (teacher_id, group_name, subject)
+);
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY,
+  title TEXT NOT NULL, description TEXT NOT NULL, place TEXT NOT NULL,
+  start_at TEXT NOT NULL, end_at TEXT NOT NULL, audience TEXT NOT NULL,
+  organizer TEXT, author_id INTEGER, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS user_events (
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  event_id INTEGER NOT NULL REFERENCES events(id),
+  added_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, event_id)
+);
+CREATE TABLE IF NOT EXISTS reschedules (
+  id INTEGER PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES users(id),
+  group_name TEXT NOT NULL, subject TEXT NOT NULL, kind TEXT, room TEXT,
+  from_date TEXT NOT NULL, from_start TEXT NOT NULL, from_end TEXT NOT NULL, from_pair INTEGER,
+  to_date TEXT NOT NULL, to_start TEXT NOT NULL, to_end TEXT NOT NULL, to_room TEXT,
+  reason TEXT, status TEXT NOT NULL CHECK (status IN ('pending','approved','rejected')),
+  staff_comment TEXT, created_at TEXT NOT NULL, decided_at TEXT
 );
 CREATE TABLE IF NOT EXISTS deadline_done (
   user_id INTEGER NOT NULL REFERENCES users(id),
@@ -140,6 +167,8 @@ function open(file = DB_FILE) {
   db.exec(SCHEMA);
   // Миграция: время для пар, поставленных деканатом вне сетки
   const cols = db.prepare('PRAGMA table_info(schedule_changes)').all().map((c) => c.name);
+  const dcols = db.prepare('PRAGMA table_info(deadlines)').all().map((c) => c.name);
+  if (!dcols.includes('lesson_date')) db.exec('ALTER TABLE deadlines ADD COLUMN description TEXT; ALTER TABLE deadlines ADD COLUMN lesson_date TEXT; ALTER TABLE deadlines ADD COLUMN lesson_start TEXT; ALTER TABLE deadlines ADD COLUMN teacher_id INTEGER;');
   if (!cols.includes('start_time')) db.exec('ALTER TABLE schedule_changes ADD COLUMN start_time TEXT; ALTER TABLE schedule_changes ADD COLUMN end_time TEXT;');
   return db;
 }

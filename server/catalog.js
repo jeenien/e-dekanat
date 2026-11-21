@@ -36,15 +36,8 @@ const TYPES = {
       { name: 'purpose', label: 'Куда нужна справка', type: 'select', options: PURPOSES, required: true },
     ],
   },
-  military: {
-    title: 'Справка в военкомат', group: 'Справки', icon: 'shield',
-    description: 'По форме приложения № 2. Только бумажная, с печатью.',
-    sla_days: 3,
-    fields: [
-      { name: 'office', label: 'Военный комиссариат', type: 'text', maxLength: 150, required: true, placeholder: 'Например: по Центральному району' },
-    ],
-  },
   rector_retake: {
+    statement: true,
     title: 'Ректорская пересдача', group: 'Заявления', icon: 'refresh',
     description: 'Если обычные пересдачи, которые назначают деканат и кафедра, уже использованы. Решение принимает проректор, срок рассмотрения — до 5 рабочих дней.',
     sla_days: 5,
@@ -54,6 +47,7 @@ const TYPES = {
     ],
   },
   financial_aid: {
+    statement: true,
     title: 'Материальная помощь', group: 'Заявления', icon: 'wallet',
     description: 'Рассматривает стипендиальная комиссия раз в две недели.',
     sla_days: 14,
@@ -63,6 +57,7 @@ const TYPES = {
     ],
   },
   academic_leave: {
+    statement: true,
     title: 'Академический отпуск', group: 'Заявления', icon: 'coffee',
     description: 'Перерыв в учебе до двух лет с сохранением места. Нужны подтверждающие документы.',
     sla_days: 10,
@@ -72,26 +67,8 @@ const TYPES = {
       { name: 'details', label: 'Комментарий', type: 'textarea', maxLength: 1000 },
     ],
   },
-  individual_plan: {
-    title: 'Индивидуальный график', group: 'Заявления', icon: 'calendar',
-    description: 'Свободное посещение для работающих студентов, спортсменов и по семейным обстоятельствам.',
-    sla_days: 7,
-    fields: [
-      { name: 'reason', label: 'Основание', type: 'select', required: true, options: ['Работа по специальности', 'Спортивные сборы', 'Семейные обстоятельства', 'Здоровье', 'Другое'] },
-      { name: 'details', label: 'Комментарий', type: 'textarea', maxLength: 1000 },
-    ],
-  },
-  appointment: {
-    title: 'Запись на прием', group: 'Связь с деканатом', icon: 'clock', popular: true,
-    description: 'Выберите время — и не стойте в очереди. Подтверждение приходит сразу.',
-    sla_days: 0, instant: true,
-    fields: [
-      { name: 'slot', label: 'Дата и время', type: 'slot', required: true },
-      { name: 'topic', label: 'Тема', type: 'select', required: true, options: ['Документы', 'Перевод / восстановление', 'Стипендия', 'Задолженности', 'Другое'] },
-    ],
-  },
   question: {
-    title: 'Вопрос в деканат', group: 'Связь с деканатом', icon: 'message',
+    title: 'Вопрос в деканат', group: 'Связь с деканатом', icon: 'message', popular: true,
     description: 'Напишите — ответ придет сюда же, в переписку по обращению, в течение рабочего дня.',
     sla_days: 1,
     fields: [

@@ -41,7 +41,7 @@ function catalogFor(db, userId) {
       if (f.type === 'slot') return { ...f, slots: appointmentSlots(db) };
       return f;
     });
-    return { id, title: t.title, group: t.group, icon: t.icon, popular: Boolean(t.popular), description: t.description, sla_days: t.sla_days, instant: Boolean(t.instant), instant_if: t.instant_if || null, fields };
+    return { id, title: t.title, group: t.group, icon: t.icon, popular: Boolean(t.popular), statement: Boolean(t.statement), description: t.description, sla_days: t.sla_days, instant: Boolean(t.instant), instant_if: t.instant_if || null, fields };
   });
 }
 
@@ -90,7 +90,7 @@ function serialize(r, events) {
   return {
     id: r.public_id, type: r.type, title: r.title, status: r.status, status_label: STATUS[r.status],
     payload: JSON.parse(r.payload), created_at: r.created_at, updated_at: r.updated_at, eta: r.eta, assignee: r.assignee,
-    has_document: Boolean(r.doc_code && t?.document && ['ready', 'done'].includes(r.status)), rating: r.rating,
+    has_document: Boolean(r.doc_code && t?.document && ['ready', 'done'].includes(r.status)), statement: Boolean(t?.statement), rating: r.rating,
     events: events?.map((e) => ({ kind: e.kind, status: e.status, status_label: e.status ? STATUS[e.status] : null, author_role: e.author_role, author_name: e.author_name, text: e.text, created_at: e.created_at })),
   };
 }

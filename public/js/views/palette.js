@@ -3,7 +3,9 @@ import { api, esc, icon, sheet } from '../lib.js';
 import { openAssistant } from './assistant.js';
 
 export async function openPalette(state) {
-  const items = state.user.role === 'staff'
+  const items = state.user.role === 'teacher'
+    ? [['Мое расписание', '#/teacher', 'calendar'], ['Посещаемость', '#/teacher/attendance', 'users'], ['Переносы пар', '#/teacher/reschedules', 'refresh'], ['Новое мероприятие', '#/teacher/event', 'megaphone'], ['Лента', '#/notifications', 'bell'], ['Профиль', '#/profile', 'user']]
+    : state.user.role === 'staff'
     ? [['Очередь заявок', '#/staff', 'inbox'], ['Студенты: посещаемость и СКУД', '#/staff/students', 'users'], ['Новое объявление', '#/staff/announce', 'megaphone'], ['Изменить расписание', '#/staff/schedule', 'calendar'], ['Лента', '#/notifications', 'bell'], ['Профиль и безопасность', '#/profile', 'user']]
     : [['Сегодня', '#/today', 'home'], ['Расписание на неделю', '#/schedule', 'calendar'], ['Успеваемость и баллы', '#/grades', 'grades'], ['Сессия: экзамены и зачеты', '#/grades/session', 'target'], ['Зачетка', '#/grades/record', 'book'],
       ['Пропуски', '#/campus', 'clock'], ['Входы и выходы (СКУД)', '#/campus/passes', 'pin'], ['Мои заявки', '#/requests', 'docs'], ['Новая заявка', '#/requests/new', 'plus'], ['Лента уведомлений', '#/notifications', 'bell'], ['Профиль и безопасность', '#/profile', 'user'], ['Спросить помощника', 'assistant', 'sparkles']];
