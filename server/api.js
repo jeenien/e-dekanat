@@ -312,7 +312,7 @@ function createApi(db, auth) {
     db.prepare('INSERT INTO retakes (student_id, discipline, date, pair, room, examiner, attempt, set_by) VALUES (?,?,?,?,?,?,?,?)').run(st.user_id, discipline.trim(), date, Number(pair), room.trim(), exr, attempt, STAFF_NAME(req.user));
     const dd = date.split('-').reverse().join('.');
     db.prepare("INSERT INTO notifications (audience, category, title, body, link, important, author, created_at) VALUES (?, 'grades', 'Назначена пересдача', ?, ?, 1, ?, ?)")
-      .run(`user:${st.user_id}`, `«${discipline.trim()}»: ${dd}, ${A.PAIRS[Number(pair)][0]}, аудитория ${room.trim()}. Пересдачу назначили деканат и кафедра — заявление не нужно.`, `#/schedule/${date}`, STAFF_NAME(req.user), nowIso());
+      .run(`user:${st.user_id}`, `«${discipline.trim()}»: ${dd}, ${A.PAIRS[Number(pair)][0]}, аудитория ${room.trim()}.`, `#/schedule/${date}`, STAFF_NAME(req.user), nowIso());
     auth.audit(req.user.id, 'staff_retake', `${st.user_id}:${date}`, req.ip);
     res.status(201).json({ ok: true, attempt });
   });

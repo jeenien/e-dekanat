@@ -102,8 +102,11 @@ function createCampusApi(db, auth) {
     if (!A.parseDate(date) || !TIME.test(start)) return res.status(400).json({ error: 'Некорректный запрос' });
     const l = S.daySchedule(db, st.group, date, req.user.id).lessons.find((x) => x.start === start && !x.event_id);
     if (!l) return res.status(404).json({ error: 'Пара не найдена' });
-    const tasks = S.deadlinesFor(db, req.user.id, st.group).filter((d) => d.lesson_date === date && d.lesson_start === start && d.discipline === l.subject);
-    res.json({ date, ...l, tasks });
+    const all = S.deadlinesFor(db, req.user.id, st.group);
+    const tasks = all.filter((d) => d.lesson_date === date && d.lesson_start === start && d.discipline === l.subject);
+    // задания, которые нужно сдать именно к этой паре
+    const due = all.filter((d) => d.due_kind === 'next_lesson' && d.due_at.slice(0, 16) === `${date}T${start}` && d.discipline === l.subject);
+    res.json({ date, ...l, tasks, due });
   });
 
   // ---------- Кабинет преподавателя ----------
@@ -140,15 +143,22 @@ function createCampusApi(db, auth) {
 
   // Задание к паре с дедлайном — появляется у студентов в «Сегодня», в расписании и в ленте
   r.post('/teacher/assignments', teacher, (req, res) => {
-    const { group, date, start, title, description, due_date, due_time } = req.body || {};
+    const { group, date, start, title, description, due_mode } = req.body || {};
+    let { due_date, due_time } = req.body || {};
     const l = A.parseDate(String(date)) && findTeacherLesson(req.user.id, String(group), String(date), String(start));
     if (!l) return res.status(404).json({ error: 'Пара не найдена' });
     if (typeof title !== 'string' || !title.trim() || title.length > 140) return res.status(400).json({ error: 'Укажите название задания' });
+    // Срок: к следующей паре по этой дисциплине или своя дата
+    if (due_mode === 'next') {
+      const nx = S.nextLesson(db, l.group, l.subject, date, start);
+      if (!nx) return res.status(400).json({ error: 'Следующей пары в ближайшие три недели нет — укажите дату' });
+      due_date = nx.date; due_time = nx.start;
+    }
     if (!A.parseDate(String(due_date)) || !TIME.test(String(due_time))) return res.status(400).json({ error: 'Укажите срок сдачи' });
     if (`${due_date}T${due_time}` < `${date}T${start}`) return res.status(400).json({ error: 'Срок сдачи не может быть раньше пары' });
     db.prepare("INSERT INTO deadlines (group_name, discipline, title, due_at, kind, description, lesson_date, lesson_start, teacher_id) VALUES (?,?,?,?, 'homework', ?,?,?,?)")
       .run(l.group, l.subject, title.trim(), `${due_date}T${due_time}:00`, String(description || '').trim().slice(0, 2000) || null, date, start, req.user.id);
-    notify(`group:${l.group}`, 'deadline', `Новое задание: ${title.trim()}`, `${l.subject}, к паре ${ddmm(date)}. Срок — ${ddmm(due_date)} ${due_time}.`, `#/schedule/${date}`, short(req.user));
+    notify(`group:${l.group}`, 'deadline', `Новое задание: ${title.trim()}`, `${l.subject}, задано на паре ${ddmm(date)}. Срок — ${due_mode === 'next' ? 'к следующей паре, ' : ''}${ddmm(due_date)} ${due_time}.`, `#/lesson/${date}/${start}`, short(req.user));
     res.status(201).json({ ok: true });
   });
 

@@ -64,6 +64,20 @@ export function dayList(day) {
   return `<div class="day">${out.join('')}</div>`;
 }
 
+// Задание: срок либо «к следующей паре», либо своя дата
+export function dueText(t) {
+  return t.due_kind === 'next_lesson'
+    ? `к следующей паре · ${fmt.wd(parseISO(t.due_at))}, ${fmt.dmShort(parseISO(t.due_at))} ${t.due_at.slice(11, 16)}`
+    : `срок · ${fmt.dateTime(t.due_at)}`;
+}
+function taskCard(t, here = false) {
+  const hot = !t.done && new Date(t.due_at) - Date.now() < 48 * 3600e3;
+  return `<div class="card" style="padding:12px;margin-bottom:8px"><div class="row between" style="align-items:flex-start;gap:8px"><b>${esc(t.title)}</b>
+    <span class="chip ${t.done ? 'ok' : hot ? 'bad' : ''}">${t.done ? 'готово' : esc(fmt.until(t.due_at))}</span></div>
+    <div class="xs faint" style="margin-top:2px">${esc(dueText(t))}${here && t.lesson_date ? ` · задано ${fmt.dmShort(parseISO(t.lesson_date))}` : ''}</div>
+    ${t.description ? `<p class="small muted" style="margin-top:4px">${esc(t.description)}</p>` : ''}</div>`;
+}
+
 // Карточка пары: детали и задания с дедлайнами, которые преподаватель прикрепил к этой паре
 export async function openLesson(date, start) {
   let l;
@@ -75,10 +89,10 @@ export async function openLesson(date, start) {
       ${l.teacher ? `<div class="row small">${icon('teacher', 'sm')} ${esc(l.teacher)}</div>` : ''}
       ${changeNote(l)}
     </div>
-    <div class="section-title">Задания к этой паре</div>
-    ${l.tasks.length ? l.tasks.map((t) => `<div class="card" style="padding:12px;margin-bottom:8px"><div class="row between" style="align-items:flex-start"><b>${esc(t.title)}</b><span class="chip ${t.done ? 'ok' : new Date(t.due_at) - Date.now() < 48 * 3600e3 ? 'bad' : ''}">${t.done ? 'готово' : 'до ' + esc(fmt.dateTime(t.due_at))}</span></div>
-      ${t.description ? `<p class="small muted" style="margin-top:4px">${esc(t.description)}</p>` : ''}</div>`).join('')
-      : empty('checkCircle', 'Заданий нет', 'Если преподаватель задаст задание к этой паре, оно появится здесь и в дедлайнах.')}`,
+    ${l.due?.length ? `<div class="section-title">Сдать к этой паре</div>${l.due.map((t) => taskCard(t, true)).join('')}` : ''}
+    <div class="section-title">Задано на этой паре</div>
+    ${l.tasks.length ? l.tasks.map((t) => taskCard(t)).join('')
+      : empty('checkCircle', 'Заданий нет', 'Если преподаватель задаст задание на этой паре, оно появится здесь и в дедлайнах.')}`,
   { label: l.subject });
 }
 
@@ -129,8 +143,9 @@ export async function render(ctx) {
           ${l.absent ? `<div class="xs" style="color:${l.absent === 'excused' ? 'var(--info)' : 'var(--bad)'};font-weight:800;margin-top:2px">${l.absent === 'excused' ? 'пропуск по справке' : 'вы отсутствовали'}</div>` : ''}
           ${l.change && l.change.type !== 'event' ? `<div class="xs" style="color:${['cancel', 'retake', 'move'].includes(l.change.type) ? 'var(--bad)' : 'var(--warn)'};font-weight:800;margin-top:2px">${esc(changeLabel(l.change))}</div>` : ''}</div>`).join('')}</div>`).join('') : '<div class="faint small" style="padding:8px 2px">Пар нет</div>'}</div>`;
     }).join('')}</div>
-    <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>семинар</span><span><i class="sw oth"></i>консультация</span><span><i class="sw ev"></i>мероприятие</span><span><i class="sw" style="background:var(--warn)"></i>изменение</span><span><i class="sw" style="background:var(--bad)"></i>пересдача</span><span><i class="sw abs"></i>пропуск</span></div>
+    <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>семинар</span><span><i class="sw oth"></i>консультация</span><span><i class="sw sw-ev"></i>мероприятие</span><span><i class="sw" style="background:var(--warn)"></i>изменение</span><span><i class="sw" style="background:var(--bad)"></i>пересдача</span><span><i class="sw abs"></i>пропуск</span></div>
   </div>`;
   bindScheduleClicks(ctx.el);
+  if (ctx.params.open) { const st = ctx.params.open; ctx.params.open = undefined; openLesson(sel, st); }
   ctx.el.querySelectorAll('.week-strip [data-date]').forEach((b) => b.onclick = () => { history.replaceState(null, '', `#/schedule/${b.dataset.date}`); ctx.params.date = b.dataset.date; render(ctx); });
 }

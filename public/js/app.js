@@ -188,6 +188,8 @@ function match(hash) {
   }
   switch (p[0]) {
     case 'schedule': return [Schedule.render, { date: p[1] }];
+    // Страница пары: расписание этого дня + карточка пары с заданиями
+    case 'lesson': return [Schedule.render, { date: p[1], open: p[2] }];
     case 'campus': return [Campus.render, { tab: p[1] || 'absences' }];
     case 'grades': return [Grades.render, { tab: p[1] || 'current' }];
     case 'requests':
