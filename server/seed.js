@@ -303,7 +303,7 @@ function seed(db) {
 
     let rid = insReq.run(publicId('Z'), anna, 'study_cert', 'Справка об обучении', JSON.stringify({ purpose: 'По месту работы родителей', format: 'electronic' }), 'ready', ago(240), ago(240), null, null, publicId('D')).lastInsertRowid;
     insEv.run(rid, 'status', 'submitted', 'student', null, null, ago(240));
-    insEv.run(rid, 'status', 'ready', 'system', 'Орбита', 'Электронная справка сформирована автоматически и подписана.', ago(240));
+    insEv.run(rid, 'status', 'ready', 'system', 'Орбита', 'Электронная справка сформирована и подписана.', ago(240));
 
     rid = insReq.run(publicId('Z'), anna, 'financial_aid', 'Материальная помощь', JSON.stringify({ reason: 'Утрата имущества', details: 'Сломался ноутбук, на котором я выполняю лабораторные. Прилагаю чек из сервиса.' }), 'in_progress', ago(70), ago(20), d(9), staffName, null).lastInsertRowid;
     insEv.run(rid, 'status', 'submitted', 'student', null, null, ago(70));

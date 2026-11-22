@@ -117,7 +117,7 @@ function createRequest(db, user, type, body) {
   if (instant) {
     const text = type === 'appointment'
       ? `Вы записаны на ${clean.slot.slice(8, 10)}.${clean.slot.slice(5, 7)} в ${clean.slot.slice(11)}. Кабинет А-112, возьмите студенческий билет.`
-      : 'Документ сформирован автоматически и подписан электронной подписью деканата. Подлинность проверяется по QR-коду.';
+      : 'Документ сформирован и подписан электронной подписью деканата. Подлинность проверяется по QR-коду.';
     ev.run(r.lastInsertRowid, 'status', 'ready', 'system', 'Орбита', text, now);
   }
   return { status: 201, body: { id: pid, status } };
