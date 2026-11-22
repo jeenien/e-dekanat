@@ -579,7 +579,7 @@ body::after { width: 40vmax; height: 40vmax; right: -10vmax; bottom: -12vmax; ba
 /* Мероприятия и пересечения: события встают рядом, как в календаре */
 :root { --event: #7c4dcc; } :root[data-theme="dark"] { --event: #b392f0; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --event: #b392f0; } }
-.sw.ev { background: var(--event); }
+.sw.sw-ev { background: var(--event); }
 .lesson.kind-event .body { border-color: var(--event); }
 .week-grid .wl.kind-event { border-left-color: var(--event); }
 .click { cursor: pointer; }

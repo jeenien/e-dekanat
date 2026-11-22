@@ -46,8 +46,9 @@ async function openTeacherLesson(group, date, start, refresh) {
       <form id="taskf" class="stack" style="gap:0;margin-top:8px"><div id="taskerr"></div>
         <div class="field"><label for="tt">Задание</label><input class="input" id="tt" maxlength="140" placeholder="Например: эссе о торговых войнах"></div>
         <div class="field"><label for="td">Описание</label><textarea class="input" id="td" maxlength="2000" style="min-height:80px"></textarea></div>
-        <div class="grid c2" style="gap:0 12px"><div class="field"><label for="tdd">Срок: дата</label><input class="input" type="date" id="tdd" value="${nextWeek}"></div>
-        <div class="field"><label for="tdt">время</label><input class="input" type="time" id="tdt" value="18:00"></div></div>
+        <div class="field"><span class="lbl">Срок сдачи</span><div class="seg"><button type="button" class="on" data-due="next">К следующей паре</button><button type="button" data-due="date">Своя дата</button></div></div>
+        <div class="grid c2" style="gap:0 12px" id="duef" hidden><div class="field"><label for="tdd">Дата</label><input class="input" type="date" id="tdd" value="${nextWeek}"></div>
+        <div class="field"><label for="tdt">Время</label><input class="input" type="time" id="tdt" value="18:00"></div></div>
         <button class="btn">${icon('plus', 'sm')} Добавить задание и дедлайн</button></form></div>
     <div data-pane="move" hidden>
       ${l.pending_reschedule ? `<div class="change-note warn" style="display:flex">${icon('clock', 'sm')} Заявка на перенос на ${fmt.dmShort(parseISO(l.pending_reschedule.to_date))} ${l.pending_reschedule.to_start} ждет решения деканата</div>` : off ? '<p class="small muted">Пара уже отменена или перенесена.</p>' : `
@@ -69,9 +70,11 @@ async function openTeacherLesson(group, date, start, refresh) {
       const absent = [...e.target.querySelectorAll('input[name=absent]:checked')].map((x) => Number(x.value));
       try { const r = await api('/teacher/attendance', { method: 'POST', body: { group, date, start, absent } }); toast(`Сохранено · отсутствуют: ${r.absent}`); close(); refresh?.(); } catch (err) { toast(err.message, 'bad'); }
     });
+    let dueMode = 'next';
+    box.querySelectorAll('[data-due]').forEach((b) => b.onclick = () => { dueMode = b.dataset.due; box.querySelectorAll('[data-due]').forEach((x) => x.classList.toggle('on', x === b)); box.querySelector('#duef').hidden = dueMode !== 'date'; });
     box.querySelector('#taskf')?.addEventListener('submit', async (e) => {
       e.preventDefault(); const v = (id) => box.querySelector(id).value;
-      try { await api('/teacher/assignments', { method: 'POST', body: { group, date, start, title: v('#tt'), description: v('#td'), due_date: v('#tdd'), due_time: v('#tdt') } }); toast('Задание добавлено, группа получила уведомление'); close(); }
+      try { await api('/teacher/assignments', { method: 'POST', body: { group, date, start, title: v('#tt'), description: v('#td'), due_mode: dueMode, due_date: v('#tdd'), due_time: v('#tdt') } }); toast('Задание добавлено, группа получила уведомление'); close(); }
       catch (err) { box.querySelector('#taskerr').innerHTML = `<div class="form-error">${esc(err.message)}</div>`; }
     });
     box.querySelector('#movef')?.addEventListener('submit', async (e) => {

@@ -1,6 +1,6 @@
 // «Сегодня» — главный экран: что сейчас, что дальше, что горит.
 import { api, esc, icon, fmt, parseISO, todayISO, minutes, empty, plural, statusChip, STATUS_META, kindClass, toast } from '../lib.js';
-import { changeLabel, dayList, bindScheduleClicks } from './schedule.js';
+import { changeLabel, dayList, bindScheduleClicks, dueText } from './schedule.js';
 
 function greeting() {
   const h = new Date().getHours();
@@ -39,7 +39,7 @@ export function deadlineList(list, compact = false) {
   return `<div>${list.map((d) => {
     const urgent = !d.done && new Date(d.due_at) - Date.now() < 48 * 3600e3;
     return `<div class="dl ${d.done ? 'done' : ''}"><button class="check ${d.done ? 'on' : ''}" data-dl="${d.id}" aria-pressed="${d.done}" aria-label="${d.done ? 'Отметить невыполненным' : 'Отметить выполненным'}: ${esc(d.title)}">${d.done ? icon('check', 'sm') : ''}</button>
-      <div class="grow"><div class="t">${esc(d.title)}</div><div class="s">${esc(d.discipline)}</div>${d.lesson_date ? `<a class="lesson-link" href="#/schedule/${d.lesson_date}">${icon('calendar', 'sm')} к паре ${fmt.wd(parseISO(d.lesson_date))}, ${fmt.dmShort(parseISO(d.lesson_date))} · ${d.lesson_start}</a>` : ''}</div>
+      <div class="grow"><div class="t">${esc(d.title)}</div><div class="s">${esc(d.discipline)}</div>${d.due_kind === 'next_lesson' ? `<div class="xs faint">${esc(dueText(d))}</div>` : ''}${d.lesson_date ? `<a class="lesson-link" href="#/lesson/${d.lesson_date}/${d.lesson_start}">${icon('calendar', 'sm')} задано на паре ${fmt.wd(parseISO(d.lesson_date))}, ${fmt.dmShort(parseISO(d.lesson_date))}</a>` : ''}</div>
       <div style="text-align:right"><span class="chip ${d.done ? 'ok' : urgent ? 'bad' : ''}">${d.done ? 'готово' : esc(fmt.until(d.due_at))}</span>${compact ? '' : `<div class="xs faint" style="margin-top:4px">${esc(fmt.dateTime(d.due_at))}</div>`}</div></div>`;
   }).join('')}</div>`;
 }

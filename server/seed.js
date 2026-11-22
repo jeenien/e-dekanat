@@ -268,7 +268,8 @@ function seed(db) {
     // Задание привязано к ближайшей паре по дисциплине (если пара есть до срока), дедлайн — к заданию
     const insDl2 = db.prepare('INSERT INTO deadlines (group_name, discipline, title, due_at, kind, description, lesson_date, lesson_start, teacher_id) VALUES (?,?,?,?,?,?,?,?,?)');
     const lessonBefore = (g, disc, off) => {
-      for (let i = Math.min(off, 6); i >= -6; i--) {
+      // Задание выдано на уже прошедшей паре (сегодня или раньше)
+      for (let i = 0; i >= -10; i--) {
         const day = A.addDays(today, i);
         const l = lessonsOn(g, day).find((x) => x.subject === disc);
         if (l) return { date: A.isoDate(day), start: A.pairsFor(g)[l.pair][0] };
@@ -278,7 +279,16 @@ function seed(db) {
     for (const [g, list] of Object.entries(dls)) for (const [disc, title, off, kind, desc] of list) {
       const lsn = lessonBefore(g, disc, off);
       const tid = TEACHES.some(([tg, ts]) => tg === g && ts === disc) ? teacherId : null;
-      insDl2.run(g, disc, title, dt(off, off === 0 ? '23:59' : '18:00'), kind, desc || null, lsn?.date || null, lsn?.start || null, tid);
+      // Контрольные и домашние задания сдаются к следующей паре, проекты и эссе — к своей дате
+      let due = dt(off, off === 0 ? '23:59' : '18:00');
+      if (lsn && ['test', 'homework'].includes(kind)) {
+        for (let k = 1; k <= 14; k++) {
+          const nd = A.addDays(A.parseDate(lsn.date), k);
+          const nl = lessonsOn(g, nd).find((x) => x.subject === disc);
+          if (nl) { due = `${A.isoDate(nd)}T${A.pairsFor(g)[nl.pair][0]}:00`; break; }
+        }
+      }
+      insDl2.run(g, disc, title, due, kind, desc || null, lsn?.date || null, lsn?.start || null, tid);
     }
     // Самостоятельный дедлайн без пары
     insDl2.run('2УП-05', 'Учебный офис', 'Выбрать дисциплины по выбору на весну', dt(10, '23:59'), 'admin', 'Выбор в разделе «Учебный план».', null, null, null);
@@ -294,7 +304,7 @@ function seed(db) {
     insNotif.run('all', 'finance', 'Стипендия за текущий месяц перечислена', 'Выплата поступит на карту в течение двух рабочих дней. Справку о размере стипендии можно заказать онлайн.', '#/requests/new/stipend_cert', 0, 0, 'Бухгалтерия', ago(76));
     insNotif.run('all', 'news', 'Зимний кампус: набор волонтеров', 'Студенческий совет ищет волонтеров на новогодний фестиваль. Волонтерские часы учитываются в портфолио.', null, 0, 0, 'Студсовет', ago(120));
     insNotif.run('faculty:Факультет управления и политики', 'news', 'Модель ООН: регистрация команд', 'Регистрация команд до пятницы. Участие засчитывается как проектная работа по «Международным конфликтам».', null, 0, 0, 'Деканат ФИТ', ago(8));
-    insNotif.run(`user:${timur}`, 'grades', 'Назначена пересдача', `«Основы маркетинга»: ${rd.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}, 16:00, аудитория 4138 (Корпус МО). Пересдачу назначили деканат и кафедра — заявление не нужно.`, '#/schedule/' + A.isoDate(rd), 1, 1, 'Деканат', ago(5));
+    insNotif.run(`user:${timur}`, 'grades', 'Назначена пересдача', `«Основы маркетинга»: ${rd.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}, 16:00, аудитория 4138 (Корпус МО).`, '#/schedule/' + A.isoDate(rd), 1, 1, 'Деканат', ago(5));
 
     // Заявки с историей
     const insReq = db.prepare('INSERT INTO requests (public_id, student_id, type, title, payload, status, created_at, updated_at, eta, assignee, doc_code) VALUES (?,?,?,?,?,?,?,?,?,?,?)');

@@ -237,6 +237,13 @@ test('преподаватель: посещаемость, задания, пе
   assert.equal((await call('/api/teacher/assignments', { method: 'POST', cookie: teacher, body: { ...body, title: 'Тестовое задание', due_date: A.isoDate(A.addDays(new Date(), 5)), due_time: '18:00' } })).status, 201);
   const dl = (await call('/api/deadlines', { cookie: anna })).json.find((d) => d.title === 'Тестовое задание');
   assert.equal(dl.lesson_date, found.date);
+  assert.equal(dl.due_kind, 'date');
+  // задание «к следующей паре»: срок равен началу следующей пары по дисциплине
+  assert.equal((await call('/api/teacher/assignments', { method: 'POST', cookie: teacher, body: { ...body, title: 'К следующей паре', due_mode: 'next' } })).status, 201);
+  const nx = (await call('/api/deadlines', { cookie: anna })).json.find((d) => d.title === 'К следующей паре');
+  assert.equal(nx.due_kind, 'next_lesson');
+  const nextLesson = (await call(`/api/lesson?date=${nx.due_at.slice(0, 10)}&start=${nx.due_at.slice(11, 16)}`, { cookie: anna })).json;
+  assert.ok(nextLesson.due.some((t) => t.title === 'К следующей паре'), 'видно в карточке следующей пары');
   const lesson = (await call(`/api/lesson?date=${found.date}&start=${found.start}`, { cookie: anna })).json;
   assert.ok(lesson.tasks.some((t) => t.title === 'Тестовое задание'));
   // перенос: деканат одобряет, у группы появляется изменение

@@ -181,10 +181,30 @@ function gradesOverview(db, userId) {
 }
 
 // ---------- Дедлайны ----------
+// Ближайшая пара по дисциплине после указанного момента (для заданий «к следующей паре»)
+function nextLesson(db, group, subject, afterDate, afterStart) {
+  const from = A.parseDate(afterDate);
+  for (let i = 0; i <= 21; i++) {
+    const date = A.isoDate(A.addDays(from, i));
+    const l = daySchedule(db, group, date).lessons.find((x) => x.subject === subject && isActive(x) && (i > 0 || x.start > afterStart));
+    if (l) return { date, start: l.start };
+  }
+  return null;
+}
+
 function deadlinesFor(db, userId, group) {
   return db.prepare(`SELECT dl.*, CASE WHEN dd.deadline_id IS NULL THEN 0 ELSE 1 END AS done FROM deadlines dl
     LEFT JOIN deadline_done dd ON dd.deadline_id = dl.id AND dd.user_id = ? WHERE dl.group_name = ? ORDER BY dl.due_at`).all(userId, group)
-    .map((x) => ({ id: x.id, discipline: x.discipline, title: x.title, due_at: x.due_at, kind: x.kind, done: Boolean(x.done), description: x.description, lesson_date: x.lesson_date, lesson_start: x.lesson_start, from_teacher: Boolean(x.teacher_id) }));
+    .map((x) => {
+      // Срок «к следующей паре» — если дедлайн совпадает с началом следующей пары по этой дисциплине
+      let dueKind = 'date';
+      if (x.lesson_date) {
+        const nx = nextLesson(db, group, x.discipline, x.lesson_date, x.lesson_start);
+        if (nx && x.due_at.slice(0, 16) === `${nx.date}T${nx.start}`) dueKind = 'next_lesson';
+      }
+      return { id: x.id, discipline: x.discipline, title: x.title, due_at: x.due_at, kind: x.kind, done: Boolean(x.done), description: x.description,
+        lesson_date: x.lesson_date, lesson_start: x.lesson_start, from_teacher: Boolean(x.teacher_id), due_kind: dueKind };
+    });
 }
 
 // ---------- Уведомления ----------
@@ -206,7 +226,7 @@ function notificationsFor(db, userId, st, role = st ? 'student' : 'staff') {
   // Напоминания о дедлайнах формируются на лету: ближайшие 48 часов, еще не отмеченные выполненными
   if (st) {
     const soon = deadlinesFor(db, userId, st.group).filter((d) => !d.done && new Date(d.due_at) > Date.now() && new Date(d.due_at) - Date.now() < 48 * 3600e3);
-    for (const d of soon) list.unshift({ id: `dl-${d.id}`, category: 'deadline', title: `Дедлайн скоро: ${d.title}`, body: `${d.discipline}. Сдать до ${d.due_at.slice(11, 16)}, ${d.due_at.slice(0, 10).split('-').reverse().join('.')}.`, link: '#/today', important: true, pinned: false, author: 'Напоминание', created_at: new Date().toISOString(), read: false, virtual: true });
+    for (const d of soon) list.unshift({ id: `dl-${d.id}`, category: 'deadline', title: `Дедлайн скоро: ${d.title}`, body: `${d.discipline}. Сдать до ${d.due_at.slice(11, 16)}, ${d.due_at.slice(0, 10).split('-').reverse().join('.')}.`, link: d.lesson_date ? `#/lesson/${d.lesson_date}/${d.lesson_start}` : '#/today', important: true, pinned: false, author: 'Напоминание', created_at: new Date().toISOString(), read: false, virtual: true });
   }
   return list;
 }
@@ -254,4 +274,4 @@ function campusFor(db, userId, days = 14) {
   return { days: out, week_minutes: week.reduce((s2, d) => s2 + d.minutes, 0), week_days: week.filter((d) => d.minutes > 0).length, inside: out[0]?.inside || false };
 }
 
-module.exports = { attendanceFor, isActive, overlaps, pairName, ABSENCE, retakesFor, absencesFor, campusFor, getStudent, daySchedule, rangeSchedule, gradesOverview, deadlinesFor, notificationsFor, audiencesFor, CONTROL_LABEL };
+module.exports = { nextLesson, attendanceFor, isActive, overlaps, pairName, ABSENCE, retakesFor, absencesFor, campusFor, getStudent, daySchedule, rangeSchedule, gradesOverview, deadlinesFor, notificationsFor, audiencesFor, CONTROL_LABEL };
