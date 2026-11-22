@@ -4,10 +4,10 @@ const A = require('./academic');
 const { decrypt } = require('./security');
 
 function getStudent(db, userId) {
-  const s = db.prepare('SELECT u.id, u.login, u.last_name, u.first_name, u.middle_name, st.* FROM users u JOIN students st ON st.user_id = u.id WHERE u.id = ?').get(userId);
+  const s = db.prepare('SELECT u.id, u.login, u.last_name, u.first_name, u.middle_name, u.gender, st.* FROM users u JOIN students st ON st.user_id = u.id WHERE u.id = ?').get(userId);
   if (!s) return null;
   return {
-    id: s.id, login: s.login, last_name: s.last_name, first_name: s.first_name, middle_name: s.middle_name,
+    id: s.id, login: s.login, last_name: s.last_name, first_name: s.first_name, middle_name: s.middle_name, gender: s.gender,
     faculty: s.faculty, program_code: s.program_code, program: s.program, profile: s.profile,
     course: s.course, group: s.group_name, study_form: s.study_form, funding: s.funding,
     enrolled_year: s.enrolled_year, stipend: s.stipend, curator: s.curator,

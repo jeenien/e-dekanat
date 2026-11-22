@@ -2,6 +2,7 @@
 const QRCode = require('qrcode');
 const S = require('./services');
 const A = require('./academic');
+const G = require('./grammar');
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ruDate = (iso) => new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -52,12 +53,12 @@ async function renderDocument(db, req, request) {
     const g = S.gradesOverview(db, request.student_id);
     const rows = Object.entries(g.semesters).flatMap(([sem, list]) => list.map((x) => `<tr><td>${esc(sem)}</td><td>${esc(x.name)}</td><td>${esc(x.control_label)}</td><td>${x.credits}</td><td>${esc(x.mark)}${x.points ? ` (${x.points}, ${x.ects})` : ''}</td></tr>`)).join('');
     body = `<h1>ВЫПИСКА ИЗ ЗАЧЕТНОЙ КНИЖКИ</h1><div class="num">№ ${esc(request.doc_code)} от ${ruDate(request.created_at)}</div>
-      <p>Студент: <b>${esc(fio)}</b>, ${st.course} курс, группа ${esc(st.group)}, направление ${esc(st.program_code)} «${esc(st.program)}», зачетная книжка № ${esc(st.record_book)}.</p>
+      <p>${G.byGender(G.genderOf(st), 'Студент', 'Студентка')}: <b>${esc(fio)}</b>, ${st.course} курс, группа ${esc(st.group)}, направление ${esc(st.program_code)} «${esc(st.program)}», зачетная книжка № ${esc(st.record_book)}.</p>
       ${rows ? `<table><tr><th>Сем.</th><th>Дисциплина</th><th>Форма</th><th>З.е.</th><th>Оценка</th></tr>${rows}</table>` : '<p><i>Сессии еще не сдавались — оценок нет.</i></p>'}
       <p>Средний балл: <b>${g.summary.gpa ?? '—'}</b>. Освоено зачетных единиц: <b>${g.summary.credits}</b>.</p>`;
   } else {
     body = `<h1>СПРАВКА</h1><div class="num">№ ${esc(request.doc_code)} от ${ruDate(request.created_at)}</div>
-      <p>Дана <b>${esc(fio)}</b>${st.birth_date ? `, ${new Date(st.birth_date).toLocaleDateString('ru-RU')} г. р.,` : ''} в том, что он(а) действительно является студентом(кой) ${st.course} курса
+      <p>Дана <b>${esc(G.fio(st, 'dat'))}</b>${st.birth_date ? `, ${new Date(st.birth_date).toLocaleDateString('ru-RU')} г. р.,` : ''} в том, что ${G.byGender(G.genderOf(st), 'он', 'она')} действительно является ${G.byGender(G.genderOf(st), 'студентом', 'студенткой')} ${st.course} курса
       ${{ 'Очная': 'очной', 'Заочная': 'заочной', 'Очно-заочная': 'очно-заочной' }[st.study_form] || st.study_form.toLowerCase()} формы обучения (${st.funding === 'Бюджет' ? 'за счет бюджетных ассигнований' : 'по договору об оказании платных образовательных услуг'})
       ${esc(facultyGenitive(st.faculty))}
       Университета «Горизонт» по направлению подготовки ${esc(st.program_code)} «${esc(st.program)}».</p>

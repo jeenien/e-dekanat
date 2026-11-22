@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('student','staff','teacher')),
   last_name TEXT NOT NULL, first_name TEXT NOT NULL, middle_name TEXT,
   position TEXT,
+  gender TEXT CHECK (gender IN ('m','f')),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS students (
@@ -174,6 +175,11 @@ function open(file = DB_FILE) {
   const cols = db.prepare('PRAGMA table_info(schedule_changes)').all().map((c) => c.name);
   const dcols = db.prepare('PRAGMA table_info(deadlines)').all().map((c) => c.name);
   if (!dcols.includes('lesson_date')) db.exec('ALTER TABLE deadlines ADD COLUMN description TEXT; ALTER TABLE deadlines ADD COLUMN lesson_date TEXT; ALTER TABLE deadlines ADD COLUMN lesson_start TEXT; ALTER TABLE deadlines ADD COLUMN teacher_id INTEGER;');
+  const ucols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  if (!ucols.includes('gender')) {
+    db.exec("ALTER TABLE users ADD COLUMN gender TEXT CHECK (gender IN ('m','f'))");
+    db.exec("UPDATE users SET gender = CASE WHEN middle_name LIKE '%вна' OR middle_name LIKE '%чна' THEN 'f' ELSE 'm' END");
+  }
   if (!cols.includes('start_time')) db.exec('ALTER TABLE schedule_changes ADD COLUMN start_time TEXT; ALTER TABLE schedule_changes ADD COLUMN end_time TEXT;');
   return db;
 }

@@ -295,11 +295,11 @@ function createApi(db, auth) {
   });
   // Посещаемость студентов для деканата
   api.get('/staff/students', staff, (req, res) => {
-    const rows = db.prepare("SELECT u.id, u.last_name, u.first_name, u.middle_name, s.group_name, s.course, s.faculty FROM users u JOIN students s ON s.user_id = u.id ORDER BY s.group_name, u.last_name").all();
+    const rows = db.prepare("SELECT u.id, u.last_name, u.first_name, u.middle_name, u.gender, s.group_name, s.course, s.faculty FROM users u JOIN students s ON s.user_id = u.id ORDER BY s.group_name, u.last_name").all();
     res.json(rows.map((r) => {
       const a = S.absencesFor(db, r.id);
       const c = S.campusFor(db, r.id, 7);
-      return { id: r.id, name: `${r.last_name} ${r.first_name} ${r.middle_name || ''}`.trim(), group: r.group_name, course: r.course, faculty: r.faculty,
+      return { id: r.id, name: `${r.last_name} ${r.first_name} ${r.middle_name || ''}`.trim(), group: r.group_name, course: r.course, faculty: r.faculty, gender: r.gender,
         absence_hours: a.hours, absence_level: a.level, week_minutes: c.week_minutes, week_days: c.week_days, inside: c.inside, today_in: c.days[0].first_in, today_out: c.days[0].last_out };
     }));
   });
@@ -355,6 +355,11 @@ function createApi(db, auth) {
   api.get('/requests/:id/document', student, async (req, res) => {
     const r = ownRequest(req);
     if (!r || !r.doc_code || !['ready', 'done'].includes(r.status)) return res.status(404).send('Документ не найден');
+    if (r.type === 'study_cert') {
+      res.type('application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="spravka-${r.doc_code}.pdf"`);
+      return (await require('./statements').studyCertPdf(db, r, `${req.protocol}://${req.get('host')}/verify/${r.doc_code}`)).pipe(res);
+    }
     res.type('html').send(await D.renderDocument(db, req, r));
   });
 
