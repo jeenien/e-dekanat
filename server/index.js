@@ -68,7 +68,7 @@ function initDb(file) {
 
 if (require.main === module) {
   const db = initDb();
-  createApp(db).listen(config.PORT, () => {
+  createApp(db).listen(config.PORT, config.HOST, () => {
     console.log(`Орбита запущена: http://localhost:${config.PORT}  (ИИ: ${config.AI_ENABLED ? 'Claude' : 'локальный режим'})`);
   });
 }

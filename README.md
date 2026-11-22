@@ -69,6 +69,7 @@ npm test           # 21 автотест безопасности и сцена�
 
 ### Развертывание по ссылке
 - **Render.com:** в репозитории лежит `render.yaml` (New → Blueprint), `DATA_KEY` генерируется автоматически.
+- **Свой сервер (VPS):** пошаговая инструкция в [docs/DEPLOY.md](docs/DEPLOY.md) — Node.js 22, systemd, Caddy с HTTPS, ночной сброс демо-базы. Готовые конфиги в `deploy/`.
 - **Docker:** `docker build -t orbita . && docker run -p 3000:3000 -e DATA_KEY=... orbita`.
 - Подойдет любой хостинг с Node 22: Railway, Timeweb Cloud, Yandex Cloud Serverless Containers. Если задать `ANTHROPIC_API_KEY`, помощник начнет отвечать через Claude.
 

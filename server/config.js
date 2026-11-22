@@ -24,6 +24,8 @@ function loadDataKey() {
 
 module.exports = {
   PORT: Number(process.env.PORT || 3000),
+  // На своем сервере за Caddy/nginx ставьте 127.0.0.1, чтобы порт не был виден снаружи
+  HOST: process.env.HOST || '0.0.0.0',
   DATA_DIR,
   DB_FILE: process.env.DB_FILE || path.join(DATA_DIR, 'orbita.db'),
   IS_PROD: process.env.NODE_ENV === 'production',
