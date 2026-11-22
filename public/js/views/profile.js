@@ -9,7 +9,7 @@ export async function render(ctx) {
   if (!ctx.isCurrent()) return;
   const isStudent = u.role === 'student';
   const masked = (v) => `<span class="masked" data-mask tabindex="0" role="button" aria-label="Показать">${esc(v || '—')}</span>`;
-  const LOG = { login: 'Вход', login_failed: 'Неудачная попытка входа', password_changed: 'Смена пароля', sessions_revoked: 'Выход на других устройствах' };
+  const LOG = { login: 'Вход', login_failed: 'Неудачная попытка входа', password_changed: 'Смена пароля', sessions_revoked: 'Завершение сеансов' };
 
   ctx.el.innerHTML = `<div class="page grid c2" style="align-items:start">
     <div class="stack">
@@ -38,7 +38,8 @@ export async function render(ctx) {
       <section class="card"><div class="card-h"><h2>Безопасность</h2>${icon('shield')}</div>
         <div class="section-title" style="margin-top:0">Активные сеансы · ${sec.sessions.length}</div>
         ${sec.sessions.map((s) => `<div class="row" style="padding:8px 0"><div class="li" style="padding:0;border:0;min-height:0"><div class="ico ${s.current ? 'ok' : ''}">${icon('monitor')}</div></div><div class="grow"><b>${esc(s.device)}</b> ${s.current ? '<span class="chip ok">это устройство</span>' : ''}<div class="xs faint">активность ${fmt.ago(s.last_seen)}</div></div></div>`).join('')}
-        ${sec.sessions.length > 1 ? `<button class="btn sm ghost" id="revoke" style="margin-top:8px">${icon('logout', 'sm')} Выйти на всех других устройствах</button>` : ''}
+        <div class="row wrap" style="margin-top:8px;gap:8px">${sec.sessions.length > 1 ? `<button class="btn sm ghost" id="revoke">${icon('logout', 'sm')} Выйти на других устройствах</button>` : ''}
+          <button class="btn sm ghost" id="revoke-all" style="color:var(--bad)">${icon('logout', 'sm')} Выйти из всех сеансов</button></div>
         <div class="section-title">Последние события</div>
         ${sec.log.map((l) => `<div class="row small" style="padding:4px 0"><span class="grow ${l.action === 'login_failed' ? '' : 'muted'}" style="${l.action === 'login_failed' ? 'color:var(--bad);font-weight:700' : ''}">${esc(LOG[l.action] || l.action)}${l.detail && l.action === 'login' ? ` · ${esc(l.detail)}` : ''}</span><span class="xs faint">${fmt.ago(l.created_at.replace(' ', 'T') + 'Z')}</span></div>`).join('') || '<p class="small faint">Событий пока нет</p>'}
       </section>
@@ -65,6 +66,10 @@ export async function render(ctx) {
   ctx.el.querySelector('#logout').onclick = logout;
   ctx.el.querySelector('#revoke')?.addEventListener('click', async () => {
     try { const r = await api('/security/revoke-others', { method: 'POST' }); toast(`Завершено сеансов: ${r.revoked}`); render(ctx); } catch (e) { toast(e.message, 'bad'); }
+  });
+  ctx.el.querySelector('#revoke-all').addEventListener('click', async () => {
+    if (!confirm('Завершить все сеансы, включая этот? Войти нужно будет заново.')) return;
+    try { await api('/security/revoke-all', { method: 'POST' }); location.hash = ''; location.reload(); } catch (e) { toast(e.message, 'bad'); }
   });
   ctx.el.querySelector('#pwd').onsubmit = async (e) => {
     e.preventDefault();

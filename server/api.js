@@ -42,6 +42,13 @@ function createApi(db, auth) {
     res.json({ ok: true, revoked: r.changes });
   });
 
+  api.post('/security/revoke-all', anyUser, (req, res) => {
+    const r = db.prepare('DELETE FROM sessions WHERE user_id = ?').run(req.user.id);
+    auth.audit(req.user.id, 'sessions_revoked', String(r.changes), req.ip);
+    auth.endSession(req, res);
+    res.json({ ok: true, revoked: r.changes });
+  });
+
   // ---------- Студент: главная ----------
   api.get('/dashboard', student, (req, res) => {
     const st = S.getStudent(db, req.user.id);
@@ -50,7 +57,10 @@ function createApi(db, auth) {
     const g = S.gradesOverview(db, req.user.id);
     const notif = S.notificationsFor(db, req.user.id, st, req.user.role);
     const reqs = db.prepare("SELECT * FROM requests WHERE student_id = ? AND (status NOT IN ('done','rejected') OR updated_at > ?) ORDER BY updated_at DESC LIMIT 4").all(req.user.id, new Date(Date.now() - 7 * 864e5).toISOString());
-    const changes = week.flatMap((d) => d.lessons.filter((l) => l.change && l.change.type !== 'retake').map((l) => ({ date: d.date, ...l })));
+    // Изменения до конца учебной недели (в воскресенье — на следующую неделю), как их считает экран расписания
+    const wd = new Date(today + 'T12:00:00').getDay();
+    const weekEnd = A.isoDate(new Date(new Date(today + 'T12:00:00').getTime() + (wd === 0 ? 7 : 7 - wd) * 864e5));
+    const changes = week.filter((d) => d.date <= weekEnd).flatMap((d) => d.lessons.filter((l) => l.change && !['retake', 'event'].includes(l.change.type)).map((l) => ({ date: d.date, ...l })));
     const abs = S.absencesFor(db, req.user.id);
     const campus = S.campusFor(db, req.user.id, 7);
     res.json({
@@ -166,10 +176,12 @@ function createApi(db, auth) {
   });
   api.post('/notifications/read', anyUser, (req, res) => {
     const st = req.user.role === 'student' ? S.getStudent(db, req.user.id) : null;
-    const visible = new Set(S.notificationsFor(db, req.user.id, st, req.user.role).filter((n) => !n.virtual).map((n) => n.id));
-    const ids = req.body?.all ? [...visible] : (Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter((id) => visible.has(id)) : []);
+    // Видимые пользователю уведомления, включая напоминания о дедлайнах (id вида «dl-12»)
+    const visible = new Set(S.notificationsFor(db, req.user.id, st, req.user.role).map((n) => String(n.id)));
+    const ids = req.body?.all ? [...visible] : (Array.isArray(req.body?.ids) ? req.body.ids.map(String).filter((id) => visible.has(id)) : []);
     const ins = db.prepare('INSERT OR IGNORE INTO notification_reads (user_id, notification_id) VALUES (?,?)');
-    for (const id of ids) ins.run(req.user.id, id);
+    const insDl = db.prepare('INSERT OR IGNORE INTO reminder_reads (user_id, deadline_id) VALUES (?,?)');
+    for (const id of ids) id.startsWith('dl-') ? insDl.run(req.user.id, Number(id.slice(3))) : ins.run(req.user.id, Number(id));
     res.json({ ok: true, marked: ids.length });
   });
 

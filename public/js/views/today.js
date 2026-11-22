@@ -101,7 +101,7 @@ export async function render(ctx) {
       <p>${fmt.wdFull(t)[0].toUpperCase() + fmt.wdFull(t).slice(1)}, ${fmt.dm(t)} · ${today.week}-я неделя, ${today.parity === 'odd' ? 'нечетная' : 'четная'}</p></div>
     ${d.retakes.map((r) => `<a class="banner-retake" href="#/schedule/${esc(r.date)}"><span class="ico">${icon('refresh', 'lg')}</span><div class="grow"><div class="row between" style="align-items:flex-start"><b>У вас пересдача</b><span class="chip bad">${fmt.until(r.date + 'T' + r.start)}</span></div>
       <div style="font-weight:700;margin-top:2px">${esc(r.discipline)}</div><div class="small muted">${fmt.dayTitle(parseISO(r.date))}, ${r.start} · ауд. ${esc(r.room)} · ${esc(r.examiner)}</div></div></a>`).join('')}
-    ${activeChanges.length ? `<a class="card row" href="#/schedule" style="background:var(--warn-soft);border-color:transparent;color:var(--text)">
+    ${activeChanges.length ? `<a class="card row" href="#/schedule/${esc(activeChanges[0].date)}" style="background:var(--warn-soft);border-color:transparent;color:var(--text)">
       <div class="ico" style="color:var(--warn)">${icon('alert', 'lg')}</div><div class="grow"><b>${activeChanges.length} ${plural(activeChanges.length, 'изменение', 'изменения', 'изменений')} в расписании</b>
       <div class="small muted">${activeChanges.slice(0, 2).map((c) => `${fmt.dmShort(parseISO(c.date))}: ${esc(changeLabel(c.change))} — ${esc(c.subject)}`).join(' · ')}</div></div>${icon('chevronRight')}</a>` : ''}
     <div class="grid dash">

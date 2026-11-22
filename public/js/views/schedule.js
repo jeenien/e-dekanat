@@ -116,7 +116,8 @@ export async function render(ctx) {
   if (!ctx.isCurrent()) return;
   const days = data.days;
   const day = days.find((d) => d.date === sel) || days[0];
-  const changes = days.reduce((s, d) => s + d.lessons.filter((l) => l.change && !['event', 'retake'].includes(l.change.type)).length, 0);
+  const curWeek = days[0].date <= todayISO() && days[6].date >= todayISO();
+  const changes = days.filter((d) => !curWeek || d.date >= todayISO()).reduce((s, d) => s + d.lessons.filter((l) => l.change && !['event', 'retake'].includes(l.change.type)).length, 0);
   const prevW = isoDate(addDays(monday, -7)), nextW = isoDate(addDays(monday, 7));
 
   ctx.el.innerHTML = `<div class="page stack">
@@ -127,7 +128,7 @@ export async function render(ctx) {
       <div class="row">${sel !== todayISO() ? `<a class="btn sm ghost" href="#/schedule">Сегодня</a>` : ''}
         <a class="btn sm soft" href="/api/schedule.ics" download>${icon('download', 'sm')} <span>Экспорт</span></a></div>
     </div>
-    ${changes ? `<div class="chip warn" style="justify-self:start">${icon('alert', 'sm')} На этой неделе ${changes} ${plural(changes, 'изменение', 'изменения', 'изменений')}</div>` : ''}
+    ${changes ? `<div class="chip warn" style="justify-self:start">${icon('alert', 'sm')} ${curWeek ? 'До конца недели' : 'На этой неделе'} ${changes} ${plural(changes, 'изменение', 'изменения', 'изменений')}</div>` : ''}
     <div class="sched-mobile stack">
       <div class="week-strip" role="tablist" aria-label="Дни недели">${days.map((d) => {
         const dd = parseISO(d.date);
