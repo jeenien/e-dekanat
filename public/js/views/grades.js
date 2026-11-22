@@ -21,15 +21,14 @@ function disciplineCard(c) {
 }
 
 function currentTab(g) {
-  return `<div class="grid c2" style="align-items:start">
-    <div class="card"><div class="card-h"><h2>Шкала оценивания</h2></div>
-      <div class="grading" role="table" aria-label="Шкала оценивания">
-        <div class="g-head" role="row"><span>Баллы</span><span>ECTS</span><span>Оценка</span></div>
-        ${[['90–100', 'A', 'отлично', 's5'], ['82–89', 'B', 'хорошо', 's4'], ['75–81', 'C', 'хорошо', 's4'], ['67–74', 'D', 'удовлетворительно', 's3'], ['60–66', 'E', 'удовлетворительно', 's3'], ['0–59', 'F', 'неудовлетворительно', 's2']]
-          .map(([r, l, m, c]) => `<div class="g-row ${c}" role="row"><span class="g-range">${r}</span><span class="g-letter">${l}</span><span class="g-mark">${m}</span></div>`).join('')}
+  return `<div class="stack">
+    <section class="card"><div class="card-h"><h2>Шкала оценивания</h2></div>
+      <div class="gscale" role="list" aria-label="Шкала оценивания">
+        ${[['90–100', 'A', 'отлично', 's5'], ['82–89', 'B', 'хорошо', 's4'], ['75–81', 'C', 'хорошо', 's4'], ['67–74', 'D', 'удовл.', 's3'], ['60–66', 'E', 'удовл.', 's3'], ['0–59', 'F', 'неуд.', 's2']]
+          .map(([r, l, m, c]) => `<div class="gs ${c}" role="listitem" aria-label="${r} баллов — ${l}, ${m}"><b>${l}</b><span class="gs-r">${r}</span><span class="gs-m">${m}</span></div>`).join('')}
       </div>
-    </div>
-    <div class="card"><div class="card-h"><h2>Пороги</h2></div><div class="row wrap" style="gap:8px"><span class="chip ok">автомат от 70 баллов</span><span class="chip">допуск к экзамену от 50 баллов</span></div></div>
+    </section>
+    <section class="card row wrap" style="gap:8px"><h2 style="font-size:17px;margin-right:6px">Пороги</h2><span class="chip ok">автомат от 70 баллов</span><span class="chip">допуск к экзамену от 50 баллов</span></section>
   </div>
   <div class="section-title">Семестр ${g.semester} · ${g.current.length} ${plural(g.current.length, 'дисциплина', 'дисциплины', 'дисциплин')}</div>
   <div class="grid c2" style="align-items:start">${g.current.map(disciplineCard).join('')}</div>`;
