@@ -1,0 +1,30 @@
+# systemd-служба «Орбиты». Копируется в /etc/systemd/system/orbita.service
+[Unit]
+Description=Orbita — цифровой деканат (демо-прототип)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=orbita
+Group=orbita
+WorkingDirectory=/opt/orbita
+EnvironmentFile=/etc/orbita.env
+ExecStart=/usr/bin/node --no-warnings server/index.js
+Restart=always
+RestartSec=3
+# Ограничение памяти: сервер 2 ГБ, приложению с запасом хватает 400 МБ
+MemoryMax=600M
+
+# Защита: процесс не может писать никуда, кроме папки с базой
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/orbita
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

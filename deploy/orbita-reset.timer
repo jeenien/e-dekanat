@@ -1,0 +1,10 @@
+# Запускает orbita-reset.service каждый день в 04:30 по времени сервера
+[Unit]
+Description=Orbita — ежедневный сброс демо-базы
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
