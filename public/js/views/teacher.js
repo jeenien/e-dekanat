@@ -22,6 +22,7 @@ export async function renderSchedule(ctx) {
     <div class="grid c3">${data.days.filter((d) => parseISO(d.date).getDay() !== 0).map((d) => `<section class="card"><div class="card-h"><h2 style="${d.date === todayISO() ? 'color:var(--brand)' : ''}">${fmt.wd(parseISO(d.date)).toUpperCase()}, ${fmt.dmShort(parseISO(d.date))}</h2></div>
       ${d.lessons.length ? clusters(d.lessons).map((g) => `<div class="${g.length > 1 ? 'wl-cluster' : 'stack'}" style="--n:${g.length};gap:6px;margin-bottom:6px">${g.map((l) => `<div class="wl ${kindClass(l.kind)} ${['cancel', 'move'].includes(l.change?.type) ? 'cancel' : l.change ? 'changed' : ''} click" tabindex="0" data-tl="${esc(l.group)}|${d.date}|${l.start}">
         <div class="faint">${l.start}–${l.end} · ${esc(l.group)}</div><b>${esc(l.subject)}</b><div class="faint">${esc(l.kind)} · ${esc(l.room)}</div>
+        ${l.pending ? `<div class="xs" style="color:var(--info);font-weight:800">${icon('clock', 'sm')} перенос на согласовании</div>` : ''}
         ${l.change && !['retake', 'event'].includes(l.change.type) ? `<div class="xs" style="color:var(--warn);font-weight:800">${l.change.type === 'move' ? 'Перенесена' : l.change.type === 'moved_in' ? 'Перенесена сюда' : l.change.type === 'cancel' ? 'Отменена' : 'Изменение'}</div>` : ''}</div>`).join('')}</div>`).join('')
       : '<p class="small faint">Пар нет</p>'}</section>`).join('')}</div></div>`;
   const open = (el) => { const [g, date, start] = el.dataset.tl.split('|'); openTeacherLesson(g, date, start, () => renderSchedule(ctx)); };
@@ -75,7 +76,7 @@ async function openTeacherLesson(group, date, start, refresh) {
     });
     box.querySelector('#movef')?.addEventListener('submit', async (e) => {
       e.preventDefault(); const v = (id) => box.querySelector(id).value;
-      try { await api('/teacher/reschedules', { method: 'POST', body: { group, date, start, to_date: v('#md'), to_start: v('#ms'), to_end: v('#me'), to_room: v('#mr'), reason: v('#mw') } }); toast('Заявка отправлена в деканат'); close(); refresh?.(); }
+      try { await api('/teacher/reschedules', { method: 'POST', body: { group, date, start, to_date: v('#md'), to_start: v('#ms'), to_end: v('#me'), to_room: v('#mr'), reason: v('#mw') } }); toast('Заявка отправлена в деканат'); close(); refresh?.(); window.dispatchEvent(new Event('orbita:badges')); }
       catch (err) { box.querySelector('#moveerr').innerHTML = `<div class="form-error">${icon('alert', 'sm')} ${esc(err.message)}</div>`; }
     });
   } });

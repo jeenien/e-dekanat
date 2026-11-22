@@ -4,6 +4,7 @@ const express = require('express');
 const A = require('./academic');
 const S = require('./services');
 const R = require('./requests');
+const W = require('./workflows');
 const D = require('./documents');
 const assistant = require('./assistant');
 const { TYPES } = require('./catalog');
@@ -138,24 +139,15 @@ function createApi(db, auth) {
   api.post('/requests/:id/messages', student, (req, res) => {
     const r = ownRequest(req);
     if (!r) return res.status(404).json({ error: 'Заявка не найдена' });
-    const text = String(req.body?.text || '').trim();
-    if (!text || text.length > 2000) return res.status(400).json({ error: 'Сообщение от 1 до 2000 символов' });
-    if (['done', 'rejected'].includes(r.status)) return res.status(409).json({ error: 'Заявка закрыта — создайте новое обращение' });
-    const name = `${req.user.first_name} ${req.user.last_name}`;
-    db.prepare("INSERT INTO request_events (request_id, kind, author_role, author_name, text, created_at) VALUES (?, 'message', 'student', ?, ?, ?)").run(r.id, name, text, nowIso());
-    // Ответ на запрос уточнения возвращает заявку в работу
-    if (r.status === 'need_info') {
-      db.prepare("UPDATE requests SET status = 'in_progress', updated_at = ? WHERE id = ?").run(nowIso(), r.id);
-      db.prepare("INSERT INTO request_events (request_id, kind, status, author_role, author_name, text, created_at) VALUES (?, 'status', 'in_progress', 'system', 'Орбита', 'Уточнение получено, заявка снова в работе.', ?)").run(r.id, nowIso());
-    } else db.prepare('UPDATE requests SET updated_at = ? WHERE id = ?').run(nowIso(), r.id);
+    const out = W.studentMessage(db, req.user, r, req.body?.text);
+    if (!out.ok) return res.status(out.status).json({ error: out.error });
     res.status(201).json(R.serialize(ownRequest(req), eventsOf(r.id)));
   });
   api.post('/requests/:id/cancel', student, (req, res) => {
     const r = ownRequest(req);
     if (!r) return res.status(404).json({ error: 'Заявка не найдена' });
-    if (!['submitted', 'need_info', 'in_progress'].includes(r.status) && !(r.type === 'appointment' && r.status === 'ready')) return res.status(409).json({ error: 'Эту заявку уже нельзя отозвать' });
-    db.prepare("UPDATE requests SET status = 'rejected', updated_at = ? WHERE id = ?").run(nowIso(), r.id);
-    db.prepare("INSERT INTO request_events (request_id, kind, status, author_role, author_name, text, created_at) VALUES (?, 'status', 'rejected', 'student', ?, 'Отозвана студентом', ?)").run(r.id, req.user.first_name, nowIso());
+    const out = W.studentCancel(db, req.user, r);
+    if (!out.ok) return res.status(out.status).json({ error: out.error });
     res.json(R.serialize(ownRequest(req), eventsOf(r.id)));
   });
   api.post('/requests/:id/rate', student, (req, res) => {
@@ -221,27 +213,16 @@ function createApi(db, auth) {
   api.post('/staff/requests/:id/status', staff, (req, res) => {
     const r = staffReq(req.params.id);
     if (!r) return res.status(404).json({ error: 'Заявка не найдена' });
-    const status = String(req.body?.status || '');
-    const comment = String(req.body?.comment || '').trim().slice(0, 2000);
-    if (!R.STATUS[status] || status === 'submitted') return res.status(400).json({ error: 'Недопустимый статус' });
-    if ((status === 'need_info' || status === 'rejected') && !comment) return res.status(400).json({ error: 'Объясните студенту причину в комментарии' });
-    const t = TYPES[r.type];
-    const docCode = (status === 'ready' && t?.document && !r.doc_code) ? require('./security').publicId('D') : r.doc_code;
-    db.prepare('UPDATE requests SET status = ?, updated_at = ?, assignee = ?, doc_code = ? WHERE id = ?').run(status, nowIso(), STAFF_NAME(req.user), docCode, r.id);
-    db.prepare("INSERT INTO request_events (request_id, kind, status, author_role, author_name, text, created_at) VALUES (?, 'status', ?, 'staff', ?, ?, ?)").run(r.id, status, STAFF_NAME(req.user), comment || null, nowIso());
-    const msg = { in_progress: 'взята в работу', need_info: 'нужно уточнение', ready: 'готова', done: 'завершена', rejected: 'отклонена' }[status];
-    R.notifyStudent(db, r.student_id, `Заявка «${r.title}»: ${msg}`, comment || `Статус изменен: ${R.STATUS[status]}.`, `#/requests/${r.public_id}`);
-    auth.audit(req.user.id, 'staff_status', `${r.public_id}:${status}`, req.ip);
+    const out = W.staffSetStatus(db, req.user, r, String(req.body?.status || ''), req.body?.comment);
+    if (!out.ok) return res.status(out.status).json({ error: out.error });
+    auth.audit(req.user.id, 'staff_status', `${r.public_id}:${req.body.status}`, req.ip);
     res.json({ ok: true });
   });
   api.post('/staff/requests/:id/messages', staff, (req, res) => {
     const r = staffReq(req.params.id);
     if (!r) return res.status(404).json({ error: 'Заявка не найдена' });
-    const text = String(req.body?.text || '').trim();
-    if (!text || text.length > 2000) return res.status(400).json({ error: 'Сообщение от 1 до 2000 символов' });
-    db.prepare("INSERT INTO request_events (request_id, kind, author_role, author_name, text, created_at) VALUES (?, 'message', 'staff', ?, ?, ?)").run(r.id, STAFF_NAME(req.user), text, nowIso());
-    db.prepare('UPDATE requests SET updated_at = ? WHERE id = ?').run(nowIso(), r.id);
-    R.notifyStudent(db, r.student_id, `Новое сообщение по заявке «${r.title}»`, text.slice(0, 180), `#/requests/${r.public_id}`);
+    const out = W.staffMessage(db, req.user, r, req.body?.text);
+    if (!out.ok) return res.status(out.status).json({ error: out.error });
     res.status(201).json({ ok: true });
   });
   api.get('/staff/groups', staff, (req, res) => {

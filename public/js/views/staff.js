@@ -104,7 +104,7 @@ async function rescheduleQueue(root) {
       ${x.status === 'pending' ? `<div class="row wrap" style="margin-top:8px"><input class="input" data-c="${x.id}" placeholder="Комментарий (обязателен при отказе)" style="flex:1;min-width:180px;min-height:40px"><button class="btn sm" data-ok="${x.id}">${icon('check', 'sm')} Одобрить</button><button class="btn sm danger" data-no="${x.id}">Отклонить</button></div>` : ''}</div>`).join('')
     : empty('checkCircle', 'Заявок на перенос нет');
   const decide = async (id, decision) => {
-    try { await api(`/staff/reschedules/${id}`, { method: 'POST', body: { decision, comment: root.querySelector(`[data-c="${id}"]`)?.value || '' } }); toast(decision === 'approve' ? 'Перенос одобрен, группа и преподаватель уведомлены' : 'Заявка отклонена'); rescheduleQueue(root); }
+    try { await api(`/staff/reschedules/${id}`, { method: 'POST', body: { decision, comment: root.querySelector(`[data-c="${id}"]`)?.value || '' } }); toast(decision === 'approve' ? 'Перенос одобрен, группа и преподаватель уведомлены' : 'Заявка отклонена'); rescheduleQueue(root); window.dispatchEvent(new Event('orbita:badges')); }
     catch (err) { toast(err.message, 'bad'); }
   };
   root.querySelectorAll('[data-ok]').forEach((b) => b.onclick = () => decide(b.dataset.ok, 'approve'));

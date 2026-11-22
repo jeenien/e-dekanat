@@ -99,6 +99,13 @@ fs.mkdirSync(OUT, { recursive: true });
   await p.context().clearCookies();
   await p.goto(BASE + '/lite'); await p.fill('input[name=login]', 'anna'); await p.fill('input[name=password]', 'Orbita-Anna-2026');
   await p.click('form.box button'); await p.waitForSelector('h2'); await shot(p, '23-mobile-lite', true);
+  await p.goto(BASE + '/lite/requests/new/financial_aid'); await shot(p, '24-mobile-lite-request-form', true);
+  await p.click('header form button');
+  await p.fill('input[name=login]', 'dekanat'); await p.fill('input[name=password]', 'Orbita-Staff-2026'); await p.click('form.box button'); await p.waitForSelector('h1');
+  await p.click('table a'); await p.waitForSelector('select[name=status]'); await shot(p, '25-mobile-lite-staff-request', true);
+  await p.goto(BASE + '/lite/reschedules'); await shot(p, '26-mobile-lite-staff-reschedules', true);
+  await p.click('header form button');
+  await p.fill('input[name=login]', 'teacher'); await p.fill('input[name=password]', 'Orbita-Teacher-2026'); await p.click('form.box button'); await p.waitForSelector('h1'); await shot(p, '27-mobile-lite-teacher', true);
   await p.close();
   await phone.close();
 

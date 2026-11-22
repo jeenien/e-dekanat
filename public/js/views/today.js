@@ -81,7 +81,7 @@ const hmin = (m) => `${Math.floor(m / 60)} ч ${String(m % 60).padStart(2, '0')}
 function campusMini(c) {
   const t = c.today;
   return `<a class="card row" href="#/campus/passes" style="color:var(--text)"><div class="li" style="padding:0;border:0;min-height:0"><div class="ico ${t.inside ? 'ok' : ''}">${icon('pin')}</div></div>
-    <div class="grow"><b>${t.first_in ? `Вход в ${t.first_in}${t.inside ? '' : ` · выход в ${t.last_out}`}` : 'Сегодня проходов нет'}</b>
+    <div class="grow"><b>${t.first_in ? `Вход в ${t.first_in}${t.inside ? '' : ` · выход в ${t.last_out}`}` : 'Сегодня проходов в университет не было'}</b>
     <div class="small muted">${t.minutes ? hmin(t.minutes) + ' сегодня · ' : ''}${Math.round(c.week_minutes / 60)} ч за неделю</div></div>${icon('chevronRight')}</a>`;
 }
 

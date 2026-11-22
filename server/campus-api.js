@@ -3,6 +3,7 @@
 const express = require('express');
 const A = require('./academic');
 const S = require('./services');
+const W = require('./workflows');
 
 const nowIso = () => new Date().toISOString();
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -106,17 +107,8 @@ function createCampusApi(db, auth) {
   });
 
   // ---------- Кабинет преподавателя ----------
-  const teaches = (tid, group, subject) => Boolean(db.prepare('SELECT 1 FROM teacher_subjects WHERE teacher_id = ? AND group_name = ? AND subject = ?').get(tid, group, subject));
-  function teacherDay(tid, date) {
-    const pairs = db.prepare('SELECT group_name, subject FROM teacher_subjects WHERE teacher_id = ?').all(tid);
-    const out = [];
-    for (const g of [...new Set(pairs.map((p) => p.group_name))]) {
-      const subj = pairs.filter((p) => p.group_name === g).map((p) => p.subject);
-      for (const l of S.daySchedule(db, g, date).lessons) if (subj.includes(l.subject)) out.push({ ...l, group: g });
-    }
-    return out.sort((a, b) => a.start.localeCompare(b.start));
-  }
-  const findTeacherLesson = (tid, group, date, start) => (teacherDay(tid, date).find((l) => l.group === group && l.start === start) || null);
+  const teacherDay = (tid, date) => W.teacherDay(db, tid, date);
+  const findTeacherLesson = (tid, group, date, start) => W.findTeacherLesson(db, tid, group, date, start);
 
   r.get('/teacher/schedule', teacher, (req, res) => {
     const from = A.parseDate(String(req.query.from || '')) || A.mondayOf(new Date());
@@ -140,19 +132,10 @@ function createCampusApi(db, auth) {
 
   // Отметка посещаемости: отсутствующие → пропуск (2 ак. ч.); пропуски по справке не трогаем
   r.post('/teacher/attendance', teacher, (req, res) => {
-    const { group, date, start, absent } = req.body || {};
-    const l = A.parseDate(String(date)) && findTeacherLesson(req.user.id, String(group), String(date), String(start));
-    if (!l) return res.status(404).json({ error: 'Пара не найдена' });
-    if (date > A.isoDate(new Date())) return res.status(400).json({ error: 'Посещаемость отмечается в день пары или позже' });
-    if (!S.isActive(l)) return res.status(400).json({ error: 'Пара отменена или перенесена' });
-    const ids = new Set((Array.isArray(absent) ? absent : []).map(Number));
-    const students = db.prepare('SELECT user_id FROM students WHERE group_name = ?').all(l.group).map((s) => s.user_id);
-    for (const sid of students) {
-      db.prepare('DELETE FROM absences WHERE student_id = ? AND date = ? AND pair = ? AND subject = ? AND excused = 0').run(sid, date, l.pair, l.subject);
-      if (ids.has(sid)) db.prepare('INSERT OR IGNORE INTO absences (student_id, date, pair, subject, excused) VALUES (?,?,?,?,0)').run(sid, date, l.pair, l.subject);
-    }
-    auth.audit(req.user.id, 'teacher_attendance', `${l.group}:${date}:${start}`, req.ip);
-    res.json({ ok: true, absent: [...ids].filter((x) => students.includes(x)).length });
+    const out = W.teacherAttendance(db, req.user, req.body || {});
+    if (!out.ok) return res.status(out.status).json({ error: out.error });
+    auth.audit(req.user.id, 'teacher_attendance', `${req.body.group}:${req.body.date}:${req.body.start}`, req.ip);
+    res.json(out);
   });
 
   // Задание к паре с дедлайном — появляется у студентов в «Сегодня», в расписании и в ленте
@@ -171,18 +154,8 @@ function createCampusApi(db, auth) {
 
   // Заявка на перенос пары — уходит в деканат на согласование
   r.post('/teacher/reschedules', teacher, (req, res) => {
-    const { group, date, start, to_date, to_start, to_end, to_room, reason } = req.body || {};
-    const l = A.parseDate(String(date)) && findTeacherLesson(req.user.id, String(group), String(date), String(start));
-    if (!l || !S.isActive(l)) return res.status(404).json({ error: 'Пара не найдена' });
-    if (!A.parseDate(String(to_date)) || !TIME.test(String(to_start)) || !TIME.test(String(to_end)) || to_start >= to_end) return res.status(400).json({ error: 'Укажите новую дату и время' });
-    if (to_date < A.isoDate(new Date())) return res.status(400).json({ error: 'Нельзя перенести пару в прошлое' });
-    if (typeof reason !== 'string' || !reason.trim()) return res.status(400).json({ error: 'Укажите причину переноса' });
-    const clash = S.daySchedule(db, l.group, to_date).lessons.filter((x) => S.isActive(x) && !(to_date === date && x.start === start) && S.overlaps(to_start, to_end, x));
-    if (clash.length) return res.status(409).json({ error: `Новое время пересекается: ${clash.map(S.pairName).join(' и ')}.`, conflicts: clash.map(S.pairName) });
-    if (db.prepare("SELECT 1 FROM reschedules WHERE teacher_id = ? AND group_name = ? AND from_date = ? AND from_start = ? AND status = 'pending'").get(req.user.id, l.group, date, start)) return res.status(409).json({ error: 'По этой паре уже есть заявка на перенос' });
-    db.prepare(`INSERT INTO reschedules (teacher_id, group_name, subject, kind, room, from_date, from_start, from_end, from_pair, to_date, to_start, to_end, to_room, reason, status, created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?)`).run(req.user.id, l.group, l.subject, l.kind, l.room, date, l.start, l.end, l.pair, to_date, to_start, to_end, String(to_room || '').trim().slice(0, 40) || l.room, reason.trim().slice(0, 500), nowIso());
-    notify('staff', 'schedule', `Заявка на перенос: ${l.subject}`, `${short(req.user)}, группа ${l.group}: ${ddmm(date)} ${l.start} → ${ddmm(to_date)} ${to_start}.`, '#/staff/schedule', short(req.user));
+    const out = W.teacherReschedule(db, req.user, req.body || {});
+    if (!out.ok) return res.status(out.status).json({ error: out.error, conflicts: out.conflicts });
     res.status(201).json({ ok: true });
   });
   const rsOut = (x) => ({ ...x, teacher: (() => { const u = db.prepare('SELECT * FROM users WHERE id = ?').get(x.teacher_id); return u ? short(u) : ''; })() });
@@ -200,25 +173,9 @@ function createCampusApi(db, auth) {
   // ---------- Деканат: согласование переносов ----------
   r.get('/staff/reschedules', staff, (req, res) => res.json(db.prepare("SELECT * FROM reschedules ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, created_at DESC").all().map(rsOut)));
   r.post('/staff/reschedules/:id', staff, (req, res) => {
-    const x = db.prepare("SELECT * FROM reschedules WHERE id = ? AND status = 'pending'").get(Number(req.params.id));
-    if (!x) return res.status(404).json({ error: 'Заявка не найдена или уже рассмотрена' });
-    const decision = req.body?.decision;
-    const comment = String(req.body?.comment || '').trim().slice(0, 500);
-    if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'Одобрить или отклонить?' });
-    if (decision === 'reject' && !comment) return res.status(400).json({ error: 'Укажите причину отказа' });
-    const who = short(req.user);
-    if (decision === 'approve') {
-      const clash = S.daySchedule(db, x.group_name, x.to_date).lessons.filter((l) => S.isActive(l) && !(x.to_date === x.from_date && l.start === x.from_start) && S.overlaps(x.to_start, x.to_end, l));
-      if (clash.length) return res.status(409).json({ error: `Новое время уже занято: ${clash.map(S.pairName).join(' и ')}.` });
-      db.prepare("INSERT INTO schedule_changes (group_name, date, pair, type, subject, kind, new_room, new_date, note, start_time, end_time) VALUES (?,?,?, 'move', ?,?,?,?,?,?,?)")
-        .run(x.group_name, x.from_date, x.from_pair, x.subject, x.kind, x.to_room, x.to_date, `Перенос по заявке преподавателя`, x.to_start, x.to_end);
-      notify(`group:${x.group_name}`, 'schedule', `Перенос пары: ${x.subject}`, `${ddmm(x.from_date)} ${x.from_start} → ${ddmm(x.to_date)} ${x.to_start}–${x.to_end}, аудитория ${x.to_room}.`, `#/schedule/${x.to_date}`, who);
-      notify(`user:${x.teacher_id}`, 'request', 'Заявка на перенос одобрена', `${x.subject}, ${x.group_name}: ${ddmm(x.from_date)} → ${ddmm(x.to_date)} ${x.to_start}.${comment ? ' ' + comment : ''}`, '#/teacher/reschedules', who);
-    } else {
-      notify(`user:${x.teacher_id}`, 'request', 'Заявка на перенос отклонена', `${x.subject}, ${x.group_name}, ${ddmm(x.from_date)}: ${comment}`, '#/teacher/reschedules', who);
-    }
-    db.prepare('UPDATE reschedules SET status = ?, staff_comment = ?, decided_at = ? WHERE id = ?').run(decision === 'approve' ? 'approved' : 'rejected', comment || null, nowIso(), x.id);
-    auth.audit(req.user.id, 'staff_reschedule', `${x.id}:${decision}`, req.ip);
+    const out = W.decideReschedule(db, req.user, req.params.id, req.body?.decision, req.body?.comment);
+    if (!out.ok) return res.status(out.status).json({ error: out.error });
+    auth.audit(req.user.id, 'staff_reschedule', `${req.params.id}:${req.body.decision}`, req.ip);
     res.json({ ok: true });
   });
 
