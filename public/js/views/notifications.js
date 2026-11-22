@@ -13,7 +13,7 @@ export async function render(ctx) {
   const isStudent = ctx.state.user.role === 'student';
   const draw = () => {
     const shown = list.filter((n) => filter === 'all' || (filter === 'unread' ? !n.read : n.category === filter || (filter === 'news' && ['finance', 'grades'].includes(n.category))));
-    const unread = list.filter((n) => !n.read && !n.virtual).length;
+    const unread = list.filter((n) => !n.read).length;
     ctx.el.innerHTML = `<div class="page stack">
       <div class="row between wrap"><div class="seg scroll" role="tablist" style="flex:1;min-width:0">${CATS.map(([k, t]) => `<button role="tab" aria-selected="${k === filter}" class="${k === filter ? 'on' : ''}" data-f="${k}">${t}</button>`).join('')}</div>
         ${unread ? `<button class="btn sm ghost" id="readall">${icon('check', 'sm')} Прочитать все</button>` : ''}</div>
@@ -27,7 +27,7 @@ export async function render(ctx) {
       }).join('') : `<div style="padding:8px 16px">${empty(filter === 'unread' ? 'checkCircle' : 'bell', filter === 'unread' ? 'Все прочитано' : 'Здесь пока пусто', filter === 'unread' ? 'Новые уведомления появятся здесь.' : 'Когда деканат что-то опубликует, вы увидите это первым.')}</div>`}</section></div>`;
     ctx.el.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filter = b.dataset.f; draw(); });
     ctx.el.querySelector('#readall')?.addEventListener('click', async () => {
-      try { await api('/notifications/read', { method: 'POST', body: { all: true } }); list = list.map((n) => (n.virtual ? n : { ...n, read: true })); draw(); ctx.refreshBadges(); toast('Все уведомления прочитаны'); }
+      try { await api('/notifications/read', { method: 'POST', body: { all: true } }); list = list.map((n) => ({ ...n, read: true })); draw(); ctx.refreshBadges(); toast('Все уведомления прочитаны'); }
       catch (e) { toast(e.message, 'bad'); }
     });
     bindCalendarButtons(ctx.el, async () => { list = await api('/notifications'); draw(); });
@@ -35,10 +35,10 @@ export async function render(ctx) {
   };
   const markRead = async (id) => {
     const n = list.find((x) => String(x.id) === id);
-    if (!n || n.read || n.virtual) return;
+    if (!n || n.read) return;
     n.read = true;
     ctx.el.querySelector(`.notif[data-id="${CSS.escape(id)}"]`)?.classList.remove('unread');
-    try { await api('/notifications/read', { method: 'POST', body: { ids: [Number(id)] } }); ctx.refreshBadges(); } catch { /* не критично */ }
+    try { await api('/notifications/read', { method: 'POST', body: { ids: [id] } }); ctx.refreshBadges(); } catch { /* не критично */ }
   };
   draw();
 }

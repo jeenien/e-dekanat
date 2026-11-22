@@ -226,7 +226,8 @@ function notificationsFor(db, userId, st, role = st ? 'student' : 'staff') {
   // Напоминания о дедлайнах формируются на лету: ближайшие 48 часов, еще не отмеченные выполненными
   if (st) {
     const soon = deadlinesFor(db, userId, st.group).filter((d) => !d.done && new Date(d.due_at) > Date.now() && new Date(d.due_at) - Date.now() < 48 * 3600e3);
-    for (const d of soon) list.unshift({ id: `dl-${d.id}`, category: 'deadline', title: `Дедлайн скоро: ${d.title}`, body: `${d.discipline}. Сдать до ${d.due_at.slice(11, 16)}, ${d.due_at.slice(0, 10).split('-').reverse().join('.')}.`, link: d.lesson_date ? `#/lesson/${d.lesson_date}/${d.lesson_start}` : '#/today', important: true, pinned: false, author: 'Напоминание', created_at: new Date().toISOString(), read: false, virtual: true });
+    const seen = new Set(db.prepare('SELECT deadline_id FROM reminder_reads WHERE user_id = ?').all(userId).map((x) => x.deadline_id));
+    for (const d of soon) list.unshift({ id: `dl-${d.id}`, category: 'deadline', title: `Дедлайн скоро: ${d.title}`, body: `${d.discipline}. Сдать до ${d.due_at.slice(11, 16)}, ${d.due_at.slice(0, 10).split('-').reverse().join('.')}.`, link: d.lesson_date ? `#/lesson/${d.lesson_date}/${d.lesson_start}` : '#/today', important: true, pinned: false, author: 'Напоминание', created_at: new Date().toISOString(), read: seen.has(d.id), virtual: true });
   }
   return list;
 }

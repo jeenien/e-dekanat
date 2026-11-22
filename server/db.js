@@ -127,6 +127,11 @@ CREATE TABLE IF NOT EXISTS notification_reads (
   notification_id INTEGER NOT NULL REFERENCES notifications(id),
   PRIMARY KEY (user_id, notification_id)
 );
+CREATE TABLE IF NOT EXISTS reminder_reads (
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  deadline_id INTEGER NOT NULL,
+  PRIMARY KEY (user_id, deadline_id)
+);
 CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY,
   user_id INTEGER, action TEXT NOT NULL, detail TEXT, ip_hash TEXT,
