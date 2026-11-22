@@ -53,6 +53,11 @@ function daySchedule(db, group, dateStr, userId = null) {
       lessons.push({ pair: r.pair, start: P[r.pair][0], end: P[r.pair][1], subject: r.discipline, kind: 'Пересдача', room: r.room, teacher: r.examiner, online: false, change: { type: 'retake', note: `Попытка ${r.attempt}` } });
     }
   }
+  // Пропуски студента — подсвечиваются в расписании
+  if (userId) {
+    const abs = db.prepare('SELECT pair, subject, excused FROM absences WHERE student_id = ? AND date = ?').all(userId, dateStr);
+    for (const a of abs) { const l = lessons.find((x) => x.pair === a.pair && x.subject === a.subject); if (l) l.absent = a.excused ? 'excused' : 'unexcused'; }
+  }
   // Мероприятия, которые студент добавил в свой календарь
   if (userId) {
     for (const e of db.prepare('SELECT e.* FROM user_events ue JOIN events e ON e.id = ue.event_id WHERE ue.user_id = ? AND substr(e.start_at, 1, 10) = ?').all(userId, dateStr)) {

@@ -611,3 +611,27 @@ body::after { width: 40vmax; height: 40vmax; right: -10vmax; bottom: -12vmax; ba
 .icon-btn { border-radius: 50%; transition: background .15s, color .15s; }
 .icon-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
 .tabbar .badge-dot { font-size: 0; }
+
+/* Шкала оценивания: строки «баллы — буква — оценка» в цвете оценки */
+.grading { display: grid; gap: 4px; }
+.g-head, .g-row { display: grid; grid-template-columns: 76px 52px 1fr; align-items: center; gap: 8px; }
+.g-head { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); padding: 0 10px 2px; }
+.g-head span:nth-child(2), .g-letter, .g-range { text-align: center; }
+.g-row { border-radius: 10px; padding: 7px 10px; font-weight: 700; font-size: 14px; }
+.g-row .g-letter { display: inline-grid; place-items: center; justify-self: center; width: 30px; height: 26px; border-radius: 8px; background: var(--surface); font-weight: 800; }
+.g-row.s5 { background: var(--ok-soft); color: var(--ok); } .g-row.s4 { background: var(--info-soft); color: var(--info); }
+.g-row.s3 { background: var(--warn-soft); color: var(--warn); } .g-row.s2 { background: var(--bad-soft); color: var(--bad); }
+.g-row .g-mark { color: var(--text); font-weight: 600; }
+
+/* Пропуск в расписании */
+.lesson.absent .body { border-color: var(--bad); }
+.lesson.absent { background: color-mix(in srgb, var(--bad-soft) 70%, transparent); border-radius: 12px; }
+.week-grid .wl.absent { border-left-color: var(--bad); background: color-mix(in srgb, var(--bad-soft) 80%, var(--surface)); }
+.absent-note { margin-top: 6px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); }
+.absent-note.exc { background: var(--info-soft); color: var(--info); }
+.sw.abs { background: var(--bad-soft); border: 1.5px solid var(--bad); }
+.grading { min-width: 0; }
+.g-head, .g-row { grid-template-columns: 64px 44px minmax(0, 1fr); gap: 6px; }
+.g-row .g-mark { overflow-wrap: anywhere; }
+@media (max-width: 400px) { .g-row { font-size: 13px; padding: 7px 8px; } .g-row .g-mark { font-size: 12.5px; } }
+.g-head span:first-child { text-align: center; }

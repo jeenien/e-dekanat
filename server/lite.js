@@ -65,7 +65,8 @@ function lessonsHtml(dayS) {
     const note = !c ? '' : c.type === 'cancel' ? '<div class="bad">Отменена</div>' : c.type === 'room' ? `<div class="warn">Новая аудитория (было ${esc(c.old_room)})</div>`
       : c.type === 'retake' ? '<div class="warn">Ваша пересдача</div>' : c.type === 'extra' ? '<div class="warn">Дополнительное занятие</div>' : '<div class="warn">Изменение</div>';
     const name = c?.type === 'cancel' ? `<s>${esc(l.subject)}</s>` : `<b>${esc(l.subject)}</b>`;
-    return `<tr><td style="white-space:nowrap">${l.start}–${l.end}</td><td>${name}<div class="muted">${esc(l.kind)} · ${esc(l.room)}</div>${note}</td></tr>`;
+    const ab = l.absent ? `<div class="${l.absent === 'excused' ? 'muted' : 'bad'}">${l.absent === 'excused' ? 'Пропуск по справке' : 'Вы отсутствовали'}</div>` : '';
+    return `<tr><td style="white-space:nowrap">${l.start}–${l.end}</td><td>${name}<div class="muted">${esc(l.kind)} · ${esc(l.room)}</div>${note}${ab}</td></tr>`;
   }).join('')}</table>`;
 }
 

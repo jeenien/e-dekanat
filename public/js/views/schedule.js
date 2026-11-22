@@ -36,11 +36,12 @@ export function lessonHtml(l, date) {
   const now = isToday && minutes(l.start) <= nowM && nowM < minutes(l.end) && l.change?.type !== 'cancel';
   const past = isToday && minutes(l.end) <= nowM;
   const off = ['cancel', 'move'].includes(l.change?.type);
-  return `<div class="lesson ${kindClass(l.kind)} ${off ? 'cancel' : ''} ${now ? 'now' : ''} ${past ? 'past' : ''} click" ${itemAttrs(l, date)}>
+  return `<div class="lesson ${kindClass(l.kind)} ${off ? 'cancel' : ''} ${now ? 'now' : ''} ${past && !l.absent ? 'past' : ''} ${l.absent ? 'absent' : ''} click" ${itemAttrs(l, date)}>
     <div class="time">${l.start}<small>${l.end}</small></div>
     <div class="body"><div class="row between" style="align-items:flex-start;gap:8px"><div class="subj">${esc(l.subject)}</div>${now ? '<span class="chip brand">сейчас</span>' : ''}</div>
       <div class="info"><span>${esc(l.kind)}</span><span>${icon(l.online ? 'monitor' : 'map', 'sm')} ${l.change?.type === 'room' ? `<s class="old">${esc(l.change.old_room)}</s>&nbsp;<b>${esc(l.room)}</b>` : esc(l.room)}</span>${l.teacher ? `<span>${icon('teacher', 'sm')} ${esc(l.teacher)}</span>` : ''}</div>
       ${changeNote(l)}
+      ${l.absent ? `<div class="absent-note ${l.absent === 'excused' ? 'exc' : ''}">${icon(l.absent === 'excused' ? 'docs' : 'x', 'sm')} ${l.absent === 'excused' ? 'Пропуск по справке' : 'Вы отсутствовали · 2 ак. ч.'}</div>` : ''}
       ${l.online_url && l.change?.type !== 'cancel' ? `<a class="link small" href="${esc(l.online_url)}" target="_blank" rel="noopener" style="margin-top:6px">${icon('ext', 'sm')} Ссылка на онлайн-занятие</a>` : ''}
     </div></div>`;
 }
@@ -123,11 +124,12 @@ export async function render(ctx) {
     <div class="week-grid">${days.slice(0, 6).map((d) => {
       const dd = parseISO(d.date);
       return `<div class="col ${d.date === todayISO() ? 'today' : ''}"><h3>${fmt.wd(dd).toUpperCase()} <small>${fmt.dmShort(dd)}</small></h3>
-        ${d.lessons.length ? clusters(d.lessons).map((g) => `<div class="${g.length > 1 ? 'wl-cluster' : ''}" style="--n:${g.length}">${g.map((l) => `<div class="wl ${kindClass(l.kind)} ${['cancel', 'move'].includes(l.change?.type) ? 'cancel' : ['retake', 'event'].includes(l.change?.type) ? '' : l.change ? 'changed' : ''} click" ${itemAttrs(l, d.date)} title="${esc(l.subject)}">
+        ${d.lessons.length ? clusters(d.lessons).map((g) => `<div class="${g.length > 1 ? 'wl-cluster' : ''}" style="--n:${g.length}">${g.map((l) => `<div class="wl ${kindClass(l.kind)} ${['cancel', 'move'].includes(l.change?.type) ? 'cancel' : ['retake', 'event'].includes(l.change?.type) ? '' : l.change ? 'changed' : ''} ${l.absent ? 'absent' : ''} click" ${itemAttrs(l, d.date)} title="${esc(l.subject)}">
           <div class="faint">${l.pair ? `${l.pair} · ` : ''}${l.start}–${l.end}</div><b>${esc(l.subject)}</b><div class="faint">${esc(l.kind)} · ${esc(l.room)}</div>${l.teacher ? `<div class="faint">${esc(l.teacher)}</div>` : ''}
+          ${l.absent ? `<div class="xs" style="color:${l.absent === 'excused' ? 'var(--info)' : 'var(--bad)'};font-weight:800;margin-top:2px">${l.absent === 'excused' ? 'пропуск по справке' : 'вы отсутствовали'}</div>` : ''}
           ${l.change && l.change.type !== 'event' ? `<div class="xs" style="color:${['cancel', 'retake', 'move'].includes(l.change.type) ? 'var(--bad)' : 'var(--warn)'};font-weight:800;margin-top:2px">${esc(changeLabel(l.change))}</div>` : ''}</div>`).join('')}</div>`).join('') : '<div class="faint small" style="padding:8px 2px">Пар нет</div>'}</div>`;
     }).join('')}</div>
-    <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>семинар</span><span><i class="sw oth"></i>консультация</span><span><i class="sw ev"></i>мероприятие</span><span><i class="sw" style="background:var(--warn)"></i>изменение</span><span><i class="sw" style="background:var(--bad)"></i>пересдача</span></div>
+    <div class="legend"><span><i class="sw lec"></i>лекция</span><span><i class="sw prac"></i>семинар</span><span><i class="sw oth"></i>консультация</span><span><i class="sw ev"></i>мероприятие</span><span><i class="sw" style="background:var(--warn)"></i>изменение</span><span><i class="sw" style="background:var(--bad)"></i>пересдача</span><span><i class="sw abs"></i>пропуск</span></div>
   </div>`;
   bindScheduleClicks(ctx.el);
   ctx.el.querySelectorAll('.week-strip [data-date]').forEach((b) => b.onclick = () => { history.replaceState(null, '', `#/schedule/${b.dataset.date}`); ctx.params.date = b.dataset.date; render(ctx); });

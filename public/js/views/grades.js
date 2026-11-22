@@ -14,20 +14,20 @@ function disciplineCard(c) {
       <span class="mark" style="left:${c.threshold}%" title="${c.control === 'exam' ? 'Допуск' : 'Автомат'}: ${c.threshold}"></span></div>
     <div class="row between wrap"><span class="chip ${cls}">${icon(c.status === 'ok' ? 'checkCircle' : 'alert', 'sm')} ${esc(c.label)}</span>
       <span class="xs faint">ср. балл группы ${c.group_avg ?? '—'}</span></div>
-    <details class="more"><summary>${icon('chevronRight', 'sm')} Из чего складывается${c.exam_targets ? ' и цели на экзамен' : ''}</summary>
+    <details class="more"><summary>${icon('chevronRight', 'sm')} Из чего складывается</summary>
       <div class="items" style="margin-top:8px">${c.items.map((i) => `<div class="it ${i.score == null ? 'future' : ''}"><span>${esc(i.title)} <span class="faint xs">${wt(i.weight)}</span></span><span>${i.score == null ? `до ${fmt.dmShort(parseISO(i.date))}` : `<b>${i.score}</b>${i.unit || ' / 100'}`}</span></div>`).join('')}</div>
-      ${c.exam_targets ? `<p class="small muted" style="margin:12px 0 6px">Нужно на экзамене (из 100):</p>
-        <div class="targets">${c.exam_targets.map((t) => `<div><b style="color:${t.possible ? 'var(--text)' : 'var(--text-3)'}">${t.possible ? t.need : '—'}</b>${esc(t.mark)}</div>`).join('')}</div>` : ''}
+
     </details></article>`;
 }
 
 function currentTab(g) {
   return `<div class="grid c2" style="align-items:start">
-    <div class="card"><div class="card-h"><h2>Шкала, 100 баллов</h2></div>
-      <div class="scale" aria-label="Шкала оценок: 0–59 F, 60–66 E, 67–74 D, 75–81 C, 82–89 B, 90–100 A"><div class="s2">F</div><div class="s3">E</div><div class="s3">D</div><div class="s4">C</div><div class="s4">B</div><div class="s5">A</div></div>
-      <div class="scale-n"><span>0</span><span>60</span><span>67</span><span>75</span><span>82</span><span>90</span></div>
-      <div class="scale marks"><div class="s2">2</div><div class="s3" style="grid-column:span 2">3</div><div class="s4" style="grid-column:span 2">4</div><div class="s5">5</div></div>
-      <div class="legend" style="margin-top:14px"><span><i class="sw"></i>рейтинг</span><span><i class="sw tick"></i>автомат / допуск</span></div>
+    <div class="card"><div class="card-h"><h2>Шкала оценивания</h2></div>
+      <div class="grading" role="table" aria-label="Шкала оценивания">
+        <div class="g-head" role="row"><span>Баллы</span><span>ECTS</span><span>Оценка</span></div>
+        ${[['90–100', 'A', 'отлично', 's5'], ['82–89', 'B', 'хорошо', 's4'], ['75–81', 'C', 'хорошо', 's4'], ['67–74', 'D', 'удовлетворительно', 's3'], ['60–66', 'E', 'удовлетворительно', 's3'], ['0–59', 'F', 'неудовлетворительно', 's2']]
+          .map(([r, l, m, c]) => `<div class="g-row ${c}" role="row"><span class="g-range">${r}</span><span class="g-letter">${l}</span><span class="g-mark">${m}</span></div>`).join('')}
+      </div>
     </div>
     <div class="card"><div class="card-h"><h2>Пороги</h2></div><div class="row wrap" style="gap:8px"><span class="chip ok">автомат от 70 баллов</span><span class="chip">допуск к экзамену от 50 баллов</span></div></div>
   </div>
