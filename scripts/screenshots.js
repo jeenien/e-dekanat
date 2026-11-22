@@ -47,9 +47,15 @@ fs.mkdirSync(OUT, { recursive: true });
   await p.selectOption('[name="purpose"]', 'Для оформления визы');
   await p.click('#submit'); await p.waitForSelector('.success'); await shot(p, '09-mobile-request-ready');
   await p.click('.success a.btn'); await p.waitForSelector('.timeline'); await p.waitForTimeout(300); await shot(p, '10-mobile-request-detail', true);
-  const [doc] = await Promise.all([phone.waitForEvent('page'), p.click('a[href*="/document"]')]);
-  await doc.waitForLoadState(); await doc.screenshot({ path: path.join(OUT, '11-mobile-document.png'), fullPage: true });
-  const verifyUrl = await doc.evaluate(() => document.querySelector('.qr div').textContent.match(/D-\S+/)[0]);
+  // Справка — PDF: скачиваем по ссылке и, если есть pdftoppm, рендерим первую страницу в PNG
+  const docHref = await p.getAttribute('a[href*="/document"]', 'href');
+  const docRes = await p.request.get(BASE + docHref);
+  if (!/application\/pdf/.test(docRes.headers()['content-type'])) throw new Error('Справка не в PDF');
+  const verifyUrl = docRes.headers()['content-disposition'].match(/D-[A-Z0-9]{4}-[A-Z0-9]{4}/)[0];
+  const pdfPath = path.join(require('os').tmpdir(), 'orbita-spravka.pdf');
+  fs.writeFileSync(pdfPath, await docRes.body());
+  try { require('child_process').execFileSync('pdftoppm', ['-png', '-r', '110', '-singlefile', pdfPath, path.join(OUT, '11-mobile-document')]); } catch { console.log('pdftoppm не найден — скриншот справки пропущен'); }
+  const doc = await phone.newPage();
   await doc.goto(`${BASE}/verify/${verifyUrl}`); await doc.screenshot({ path: path.join(OUT, '12-mobile-verify.png') });
 
   // Помощник

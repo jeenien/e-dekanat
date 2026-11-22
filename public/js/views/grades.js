@@ -1,5 +1,8 @@
-// Успеваемость: «как у меня дела» — баллы, прогноз, что нужно на экзамене, сессия, зачетка.
+// Успеваемость: баллы по дисциплинам, шкала оценивания, сессия, зачетка.
 import { api, esc, icon, fmt, parseISO, empty, markClass, markShort, plural } from '../lib.js';
+
+// «5 зачетных единиц» вместо непонятного «5 з.е.»; 1 зачетная единица = 36 академических часов
+const zet = (n) => `<span title="${n * 36} ак. ч. учебной нагрузки">${n} ${plural(n, 'зачетная единица', 'зачетные единицы', 'зачетных единиц')}</span>`;
 
 const STATUS_CHIP = { ok: ['ok', 'В графике'], watch: ['warn', 'Внимание'], risk: ['bad', 'Внимание'] };
 
@@ -7,7 +10,7 @@ const wt = (w) => `×${String(w).replace('.', ',')}`;
 function disciplineCard(c) {
   const [cls] = STATUS_CHIP[c.status];
   return `<article class="card disc">
-    <div class="disc-h"><div class="grow"><h3>${esc(c.name)}</h3><div class="small muted">${esc(c.control_label)}${c.teacher ? ` · ${esc(c.teacher)}` : ''} · ${c.credits} з.е.</div></div>
+    <div class="disc-h"><div class="grow"><h3>${esc(c.name)}</h3><div class="small muted">${esc(c.control_label)}${c.teacher ? ` · ${esc(c.teacher)}` : ''} · ${zet(c.credits)}</div></div>
       <div class="score">${c.earned}<small> / 100</small></div></div>
     <div class="progress ${c.status}" role="img" aria-label="Рейтинг ${c.earned} из 100, порог ${c.threshold}">
       <i style="width:${Math.min(100, c.earned)}%;position:relative"></i>
@@ -57,7 +60,7 @@ function recordTab(g) {
       <div class="stat"><b>${g.summary.excellent_share ?? 0}%</b><span>оценок «отлично»</span></div></div>
     ${g.debts.length ? `<div class="card row" style="background:var(--bad-soft);border-color:transparent"><div style="color:var(--bad)">${icon('alert', 'lg')}</div><div class="grow"><b>Академическая задолженность</b><div class="small">${g.debts.map((d) => `${esc(d.name)} (${d.semester} сем.)`).join(', ')}</div><div class="xs muted" style="margin-top:4px">Дату пересдачи назначают деканат и кафедра — она появится в расписании и на главной.</div></div></div>` : ''}
     ${sems.reverse().map(([sem, list]) => `<section class="card pad-0"><div class="card-h" style="padding:14px 16px 4px"><h2>${sem} семестр</h2><span class="chip">${list.length} ${plural(list.length, 'дисциплина', 'дисциплины', 'дисциплин')}</span></div>
-      <div class="list">${list.map((x) => `<div class="li"><div class="grow"><div class="t">${esc(x.name)}</div><div class="s">${esc(x.control_label)} · ${x.credits} з.е.${x.points ? ` · ${x.points} б.` : ''}</div></div><span class="mark-pill ${markClass(x.mark)}" title="${esc(x.mark)}">${esc(markShort(x.mark))}</span>${x.ects ? `<span class="mark-pill mz" title="ECTS" style="margin-left:6px">${x.ects}</span>` : ''}</div>`).join('')}</div></section>`).join('')}
+      <div class="list">${list.map((x) => `<div class="li"><div class="grow"><div class="t">${esc(x.name)}</div><div class="s">${esc(x.control_label)} · ${zet(x.credits)}${x.points ? ` · ${x.points} б.` : ''}</div></div><span class="mark-pill ${markClass(x.mark)}" title="${esc(x.mark)}">${esc(markShort(x.mark))}</span>${x.ects ? `<span class="mark-pill mz" title="ECTS" style="margin-left:6px">${x.ects}</span>` : ''}</div>`).join('')}</div></section>`).join('')}
     <a class="btn ghost" href="#/requests/new/transcript">${icon('download')} Получить выписку из зачетки</a>`;
 }
 

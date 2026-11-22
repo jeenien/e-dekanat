@@ -124,8 +124,8 @@ function createCampusApi(db, auth) {
     const { group = '', date = '', start = '' } = req.query;
     const l = A.parseDate(String(date)) && findTeacherLesson(req.user.id, String(group), String(date), String(start));
     if (!l) return res.status(404).json({ error: 'Пара не найдена' });
-    const students = db.prepare('SELECT u.id, u.last_name, u.first_name, u.middle_name FROM users u JOIN students s ON s.user_id = u.id WHERE s.group_name = ? ORDER BY u.last_name').all(l.group)
-      .map((s) => ({ id: s.id, name: `${s.last_name} ${s.first_name} ${s.middle_name || ''}`.trim(),
+    const students = db.prepare('SELECT u.id, u.last_name, u.first_name, u.middle_name, u.gender FROM users u JOIN students s ON s.user_id = u.id WHERE s.group_name = ? ORDER BY u.last_name').all(l.group)
+      .map((s) => ({ id: s.id, name: `${s.last_name} ${s.first_name} ${s.middle_name || ''}`.trim(), gender: s.gender,
         absent: Boolean(db.prepare('SELECT 1 FROM absences WHERE student_id = ? AND date = ? AND pair = ? AND subject = ?').get(s.id, date, l.pair, l.subject)),
         attendance: S.attendanceFor(db, s.id, l.group, l.subject) }));
     const tasks = db.prepare('SELECT id, title, description, due_at FROM deadlines WHERE group_name = ? AND discipline = ? AND lesson_date = ? AND lesson_start = ? ORDER BY due_at').all(l.group, l.subject, date, start);

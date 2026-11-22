@@ -44,14 +44,14 @@ const PAST = {
 // Профиль успеваемости: базовый уровень (0…1) и отдельные дисциплины
 const STUDENTS = [
   {
-    login: 'anna', last: 'Ветрова', first: 'Анна', middle: 'Сергеевна',
+    login: 'anna', last: 'Ветрова', first: 'Анна', middle: 'Сергеевна', gender: 'f',
     faculty: 'Факультет управления и политики', code: '41.03.04', program: 'Политология', profile: 'Сравнительная политология и мировые политические процессы',
     course: 2, group: '2УП-05', form: 'Очная', funding: 'Бюджет', year: 2025, stipend: 'Академическая повышенная',
     curator: 'Мирская Елена Викторовна', book: '25-УП-0417', email: 'a.vetrova@student.gorizont.example', phone: '+7 900 000-14-17', birth: '2007-03-14',
     base: 0.92, special: {}, past: [['отлично', 'отлично', 'хорошо', 'хорошо', 'зачтено', 'зачтено'], ['отлично', 'отлично', 'отлично', 'хорошо', 'зачтено', 'зачтено']],
   },
   {
-    login: 'timur', last: 'Северцев', first: 'Тимур', middle: 'Андреевич',
+    login: 'timur', last: 'Северцев', first: 'Тимур', middle: 'Андреевич', gender: 'm',
     faculty: 'Факультет международной журналистики', code: '42.03.01', program: 'Реклама и связи с общественностью', profile: 'Международные связи с общественностью',
     course: 2, group: '2МЖ-05', form: 'Очная', funding: 'Договор', year: 2025, stipend: 'Не назначена',
     curator: 'Лаптева Ольга Геннадьевна', book: '25-МЖ-1183', email: 't.severtsev@student.gorizont.example', phone: '+7 900 000-11-83', birth: '2006-09-02',
@@ -60,7 +60,7 @@ const STUDENTS = [
     debt: 'Основы маркетинга',
   },
   {
-    login: 'nika', last: 'Полярная', first: 'Ника', middle: 'Олеговна',
+    login: 'nika', last: 'Полярная', first: 'Ника', middle: 'Олеговна', gender: 'f',
     faculty: 'Факультет международных отношений', code: '41.03.01', program: 'Зарубежное регионоведение', profile: 'Страны Восточной Азии',
     course: 1, group: '1МО-01', form: 'Очная', funding: 'Бюджет', year: 2026, stipend: 'Академическая',
     curator: 'Северина Марина Игоревна', book: '26-МО-0032', email: 'n.polyarnaya@student.gorizont.example', phone: '+7 900 000-00-32', birth: '2008-07-21',
@@ -92,13 +92,13 @@ function seed(db) {
   const semStart = A.academicYearStart(today);
 
   tx(db, () => {
-    const insUser = db.prepare('INSERT INTO users (login, password_hash, role, last_name, first_name, middle_name, position) VALUES (?,?,?,?,?,?,?)');
+    const insUser = db.prepare('INSERT INTO users (login, password_hash, role, last_name, first_name, middle_name, position, gender) VALUES (?,?,?,?,?,?,?,?)');
     const pwd = Object.fromEntries(DEMO_ACCOUNTS.map((a) => [a.login, a.password]));
 
     // Сотрудник деканата
-    insUser.run('dekanat', hashPassword(pwd.dekanat), 'staff', 'Ладогина', 'Ольга', 'Викторовна', 'Специалист по учебной работе');
+    insUser.run('dekanat', hashPassword(pwd.dekanat), 'staff', 'Ладогина', 'Ольга', 'Викторовна', 'Специалист по учебной работе', 'f');
     // Преподаватель (вымышленный): ведет «Мировую экономику» в трех группах
-    const teacherId = insUser.run('teacher', hashPassword(pwd.teacher), 'teacher', 'Кравцова', 'Елена', 'Михайловна', 'Доцент кафедры мировой экономики').lastInsertRowid;
+    const teacherId = insUser.run('teacher', hashPassword(pwd.teacher), 'teacher', 'Кравцова', 'Елена', 'Михайловна', 'Доцент кафедры мировой экономики', 'f').lastInsertRowid;
     const TEACHES = [['2УП-05', 'Мировая экономика'], ['2МЖ-05', 'Мировая экономика'], ['1МО-01', 'Мировая экономика']];
     const insTS = db.prepare('INSERT INTO teacher_subjects (teacher_id, group_name, subject) VALUES (?,?,?)');
     for (const [g, subj] of TEACHES) insTS.run(teacherId, g, subj);
@@ -156,7 +156,7 @@ function seed(db) {
     const sessStart = A.parseDate(sess.start);
 
     for (const s of STUDENTS) {
-      const uid = insUser.run(s.login, hashPassword(pwd[s.login]), 'student', s.last, s.first, s.middle, null).lastInsertRowid;
+      const uid = insUser.run(s.login, hashPassword(pwd[s.login]), 'student', s.last, s.first, s.middle, null, s.gender).lastInsertRowid;
       insStudent.run(uid, s.faculty, s.code, s.program, s.profile, s.course, s.group, s.form, s.funding, s.year, s.stipend, s.curator,
         encrypt(s.book), encrypt(s.email), encrypt(s.phone), encrypt(s.birth));
 
@@ -315,11 +315,11 @@ function seed(db) {
     insEv.run(rid, 'status', 'submitted', 'student', null, null, ago(240));
     insEv.run(rid, 'status', 'ready', 'system', 'Орбита', 'Электронная справка сформирована и подписана.', ago(240));
 
-    rid = insReq.run(publicId('Z'), anna, 'financial_aid', 'Материальная помощь', JSON.stringify({ reason: 'Утрата имущества', details: 'Сломался ноутбук, на котором я выполняю лабораторные. Прилагаю чек из сервиса.' }), 'in_progress', ago(70), ago(20), d(9), staffName, null).lastInsertRowid;
+    rid = insReq.run(publicId('Z'), anna, 'financial_aid', 'Материальная помощь', JSON.stringify({ reason: 'Потеря кормильца', details: 'В октябре умер мой отец, он был основным кормильцем семьи. Мама воспитывает еще двоих детей, доход семьи заметно снизился. Прилагаю копию свидетельства о смерти и справку о составе семьи.', docs: 'Копия свидетельства о смерти, справка о составе семьи' }), 'in_progress', ago(70), ago(20), d(9), staffName, null).lastInsertRowid;
     insEv.run(rid, 'status', 'submitted', 'student', null, null, ago(70));
     insEv.run(rid, 'status', 'in_progress', 'staff', staffName, 'Заявление передано в стипендиальную комиссию. Заседание — в следующую среду.', ago(20));
-    insEv.run(rid, 'message', null, 'student', 'Анна Ветрова', 'Спасибо! Нужно ли приносить оригинал чека?', ago(19));
-    insEv.run(rid, 'message', null, 'staff', staffName, 'Достаточно скана — он уже приложен. Оригинал храните у себя.', ago(18));
+    insEv.run(rid, 'message', null, 'student', 'Анна Ветрова', 'Спасибо! Нужно ли приносить оригиналы документов?', ago(19));
+    insEv.run(rid, 'message', null, 'staff', staffName, 'Достаточно сканов, они уже приложены. Оригиналы храните у себя.', ago(18));
 
     rid = insReq.run(publicId('Z'), timur, 'academic_leave', 'Академический отпуск', JSON.stringify({ reason: 'Семейные обстоятельства', from: d(14), details: 'Прошу предоставить академический отпуск на один год в связи с уходом за родственником.' }), 'need_info', ago(50), ago(26), d(4), staffName, null).lastInsertRowid;
     insEv.run(rid, 'status', 'submitted', 'student', null, null, ago(50));

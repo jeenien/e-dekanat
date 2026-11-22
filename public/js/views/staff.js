@@ -181,7 +181,7 @@ export async function renderStudents(ctx) {
     <input class="input" id="sq" placeholder="Поиск: ФИО или группа" style="max-width:360px">
     <section class="card pad-0"><div class="table-wrap"><table class="table resp"><thead><tr><th>Студент</th><th>Сейчас</th><th>В университете за 7 дней</th><th>Пропуски</th></tr></thead><tbody>
     ${list.map((s) => `<tr class="click" tabindex="0" data-id="${s.id}" data-q="${esc(`${s.name} ${s.group}`.toLowerCase())}"><td><b>${esc(s.name)}</b><div class="xs faint">${esc(s.group)} · ${s.course} курс</div></td>
-      <td>${s.today_in ? `<span class="chip ${s.inside ? 'ok' : ''}">вход в ${esc(s.today_in)}</span>${!s.inside && s.today_out ? ` <span class="chip">выход в ${esc(s.today_out)}</span>` : ''}` : '<span class="chip">не приходил(а)</span>'}</td>
+      <td>${s.today_in ? `<span class="chip ${s.inside ? 'ok' : ''}">вход в ${esc(s.today_in)}</span>${!s.inside && s.today_out ? ` <span class="chip">выход в ${esc(s.today_out)}</span>` : ''}` : `<span class="chip">${s.gender === 'f' ? 'не приходила' : 'не приходил'}</span>`}</td>
       <td><b>${hmin(s.week_minutes)}</b> <span class="xs faint">· ${s.week_days} ${plural(s.week_days, 'день', 'дня', 'дней')}</span></td>
       <td><b>${s.absence_hours} ак. ч.</b> ${LVL[s.absence_level][1] ? `<span class="chip ${LVL[s.absence_level][0]}">${LVL[s.absence_level][1]}</span>` : ''}</td></tr>`).join('')}
     </tbody></table></div></section></div>`;

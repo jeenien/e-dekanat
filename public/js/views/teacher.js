@@ -39,7 +39,7 @@ async function openTeacherLesson(group, date, start, refresh) {
     <div class="seg" style="margin:14px 0" role="tablist"><button class="on" data-tab="att">Посещаемость</button><button data-tab="task">Задания</button><button data-tab="move">Перенос</button></div>
     <div data-pane="att">${off ? '<p class="small muted">Пара отменена или перенесена.</p>' : !l.can_mark ? '<p class="small muted">Посещаемость отмечается в день пары.</p>' : `
       <form id="attf">${l.students.map((s) => `<label class="row between" style="padding:10px 0;border-top:1px solid var(--line)"><span><b>${esc(s.name)}</b><div class="xs faint">посещаемость по дисциплине ${s.attendance}%</div></span>
-        <span class="row small"><input type="checkbox" name="absent" value="${s.id}" ${s.absent ? 'checked' : ''}> отсутствовал(а)</span></label>`).join('')}
+        <span class="row small"><input type="checkbox" name="absent" value="${s.id}" ${s.absent ? 'checked' : ''}> ${s.gender === 'f' ? 'отсутствовала' : 'отсутствовал'}</span></label>`).join('')}
       <button class="btn block" style="margin-top:12px">${icon('check', 'sm')} Сохранить посещаемость</button></form>`}</div>
     <div data-pane="task" hidden>
       ${l.tasks.length ? l.tasks.map((t) => `<div class="card" style="padding:10px 12px;margin-bottom:8px"><b>${esc(t.title)}</b><div class="xs faint">до ${esc(fmt.dateTime(t.due_at))}</div>${t.description ? `<div class="small muted" style="margin-top:4px">${esc(t.description)}</div>` : ''}</div>`).join('') : '<p class="small muted">К этой паре заданий пока нет.</p>'}

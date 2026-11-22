@@ -98,7 +98,8 @@ test('сценарий: электронная справка готова ср�
   const r = await call('/api/requests', { method: 'POST', cookie: anna, body: { type: 'study_cert', fields: { purpose: 'По месту требования', format: 'electronic' } } });
   assert.equal(r.status, 201); assert.equal(r.json.status, 'ready');
   const doc = await call(`/api/requests/${r.json.id}/document`, { cookie: anna });
-  const code = doc.text.match(/D-[A-Z0-9]{4}-[A-Z0-9]{4}/)[0];
+  assert.equal(doc.status, 200); assert.match(doc.headers.get('content-type'), /application\/pdf/);
+  const code = doc.headers.get('content-disposition').match(/D-[A-Z0-9]{4}-[A-Z0-9]{4}/)[0];
   const v = await call(`/verify/${code}`);
   assert.match(v.text, /Документ подлинный/);
   assert.ok(!v.text.includes('Ветрова'), 'на странице проверки ФИО скрыто');

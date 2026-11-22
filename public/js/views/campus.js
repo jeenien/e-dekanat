@@ -12,7 +12,7 @@ export function campusBars(days) {
   const max = Math.max(60, ...list.map((d) => d.minutes));
   return `<div class="bars" role="img" aria-label="Время в университете по дням за неделю">${list.map((d) => {
     const dd = parseISO(d.date);
-    return `<div class="b ${d.date === todayISO() ? 'today' : ''}" title="${esc(fmt.dm(dd))}: ${d.minutes ? hmin(d.minutes) : 'не был(а)'}">
+    return `<div class="b ${d.date === todayISO() ? 'today' : ''}" title="${esc(fmt.dm(dd))}: ${d.minutes ? hmin(d.minutes) : 'проходов не было'}">
       ${d.minutes ? `<em>${(d.minutes / 60).toFixed(1).replace('.0', '')}</em>` : '<em>—</em>'}
       <i class="${d.minutes ? '' : 'zero'}" style="height:${d.minutes ? Math.max(4, Math.round(d.minutes / max * 96)) : 2}px"></i><small>${fmt.wd(dd)}</small></div>`;
   }).join('')}</div>`;
