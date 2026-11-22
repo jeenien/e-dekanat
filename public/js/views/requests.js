@@ -31,7 +31,7 @@ export async function renderList(ctx) {
   const types = await catalog();
   ctx.el.innerHTML = `<div class="page stack">
     <a class="card row" href="#/requests/new" style="background:var(--grad);color:#fff;border:0">
-      <div class="grow"><b style="font-size:17px">Новая заявка</b><div class="small" style="opacity:.9">Справки, заявления, запись на прием — ${types.length} ${plural(types.length, 'услуга', 'услуги', 'услуг')}</div></div>
+      <div class="grow"><b style="font-size:17px">Новая заявка</b><div class="small" style="opacity:.9">Справки, заявления, вопросы — ${types.length} ${plural(types.length, 'услуга', 'услуги', 'услуг')}</div></div>
       <span class="icon-btn" style="background:rgba(255,255,255,.2);color:#fff">${icon('plus')}</span></a>
     <div class="section-title">Популярное</div>
     <div class="svc-grid">${types.filter((t) => t.popular).slice(0, 3).map((t) => svcTile(t)).join('')}</div>

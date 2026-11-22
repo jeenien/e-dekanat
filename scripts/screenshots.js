@@ -14,7 +14,8 @@ fs.mkdirSync(OUT, { recursive: true });
     p.on('pageerror', (e) => errors.push(`${tag}: ${e.message}`));
     p.on('console', (m) => { if (m.type() === 'error' && !/favicon|401|404|409|422/.test(m.text())) errors.push(`${tag}: ${m.text()}`); });
   };
-  const shot = (p, name, full = false) => p.screenshot({ path: path.join(OUT, name + '.png'), fullPage: full });
+  // Пауза перед снимком: страница появляется с анимацией 0,25 с
+  const shot = async (p, name, full = false) => { await p.waitForTimeout(350); return p.screenshot({ path: path.join(OUT, name + '.png'), fullPage: full }); };
   async function login(p, who) {
     await p.goto(BASE + '/');
     await p.waitForSelector('#login-form');
@@ -25,7 +26,7 @@ fs.mkdirSync(OUT, { recursive: true });
   }
 
   // ---------- Телефон (360 px) ----------
-  const phone = await browser.newContext({ ...devices['Pixel 5'], viewport: { width: 360, height: 780 }, reducedMotion: 'reduce' });
+  const phone = await browser.newContext({ ...devices['Pixel 5'], viewport: { width: 360, height: 780 }, reducedMotion: 'reduce', locale: 'ru-RU', timezoneId: 'Europe/Moscow' });
   let p = await phone.newPage(); watch(p, 'phone');
   await p.goto(BASE + '/'); await p.waitForSelector('#login-form'); await shot(p, '01-mobile-login');
   // ошибка входа
@@ -116,7 +117,7 @@ fs.mkdirSync(OUT, { recursive: true });
   await phone.close();
 
   // ---------- Компьютер ----------
-  const desk = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
+  const desk = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, reducedMotion: 'reduce', locale: 'ru-RU', timezoneId: 'Europe/Moscow' });
   p = await desk.newPage(); watch(p, 'desk');
   await login(p, 'anna');
   await shot(p, '30-desktop-today');
@@ -130,8 +131,7 @@ fs.mkdirSync(OUT, { recursive: true });
   await p.context().clearCookies();
   // Сотрудник деканата
   await login(p, 'dekanat');
-  await p.waitForSelector('#tbl'); await shot(p, '35-desktop-staff-queue');
-  await p.click('[data-f=""]'); await p.waitForSelector('#tbl tr.click');
+  await p.waitForSelector('#tbl'); await p.click('[data-f=""]'); await p.waitForSelector('#tbl tr.click'); await shot(p, '35-desktop-staff-queue');
   await p.click('#tbl tr.click'); await p.waitForSelector('#st');
   await p.fill('#cm', 'Справка подготовлена, можно забрать в А-112 с 10:00 до 17:00.');
   await shot(p, '36-desktop-staff-request');

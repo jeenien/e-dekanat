@@ -1,11 +1,16 @@
 # Ежедневный сброс демо-базы: даты в демо-данных считаются от «сегодня».
-# Копируется в /etc/systemd/system/orbita-reset.service (вместе с orbita-reset.timer)
+# Копируется в /etc/systemd/system/orbita-reset.service (вместе с orbita-reset.timer).
+# Приложение запускается обратно при любом исходе: ExecStopPost срабатывает, даже если сброс упал.
 [Unit]
-Description=Orbita — пересоздание демо-базы
+Description=Orbita - пересоздание демо-базы
 
 [Service]
 Type=oneshot
-User=root
-ExecStart=/bin/systemctl stop orbita
-ExecStart=/usr/bin/runuser -u orbita -- /bin/sh -c 'set -a; . /etc/orbita.env; cd /opt/orbita && /usr/bin/node --no-warnings scripts/reset-db.js'
-ExecStart=/bin/systemctl start orbita
+User=orbita
+Group=orbita
+WorkingDirectory=/opt/orbita
+EnvironmentFile=/etc/orbita.env
+# «+» — команда выполняется с правами root, несмотря на User=orbita
+ExecStartPre=+/bin/systemctl stop orbita
+ExecStart=/usr/bin/node --no-warnings scripts/reset-db.js
+ExecStopPost=+/bin/systemctl start orbita
