@@ -261,6 +261,35 @@ test('типовое заявление в PDF только по своей за
   assert.equal((await call('/api/statements/study_cert.pdf', { cookie: anna })).status, 404);
 });
 
+test('облегченная версия: заявки студента, решение деканата, отметка преподавателя', async () => {
+  const form = (path, cookie, body, headers = {}) => fetch(base + path, { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookie, ...headers }, body: new URLSearchParams(body) });
+  const nika = await login('nika');
+  const created = await form('/lite/requests/new/question', nika, { topic: 'Пропуск по болезни', text: 'Куда принести справку?' });
+  assert.equal(created.status, 303);
+  const loc = created.headers.get('location');
+  assert.match(loc, /^\/lite\/requests\/Z-/);
+  const pid = loc.split('/')[3].split('?')[0];
+  const bad = await form('/lite/requests/new/question', nika, { topic: '' });
+  assert.equal(bad.status, 200); assert.match(await bad.text(), /Заполните поле/);
+  // деканат: запрос уточнения без комментария отклоняется, с комментарием — проходит
+  const staff = await login('dekanat');
+  const noComment = await form(`/lite/staff/requests/${pid}/status`, staff, { status: 'need_info', comment: '' });
+  assert.match(noComment.headers.get('location'), /err=/);
+  const ok = await form(`/lite/staff/requests/${pid}/status`, staff, { status: 'need_info', comment: 'Уточните даты болезни' });
+  assert.match(ok.headers.get('location'), /ok=/);
+  assert.equal((await call(`/api/requests/${pid}`, { cookie: nika })).json.status, 'need_info');
+  // ответ студента возвращает заявку в работу
+  await form(`/lite/requests/${pid}/message`, nika, { text: 'С 10 по 14 ноября' });
+  assert.equal((await call(`/api/requests/${pid}`, { cookie: nika })).json.status, 'in_progress');
+  // студент не может пользоваться формами деканата, чужой сайт не может отправить форму
+  assert.equal((await form(`/lite/staff/requests/${pid}/status`, nika, { status: 'done' })).status, 303);
+  assert.equal((await call(`/api/requests/${pid}`, { cookie: nika })).json.status, 'in_progress');
+  assert.equal((await form(`/lite/requests/${pid}/cancel`, nika, {}, { Origin: 'https://evil.example' })).status, 403);
+  // преподаватель видит свои пары в облегченной версии
+  const teacher = await login('teacher');
+  assert.match((await call('/lite', { cookie: teacher })).text, /Мои пары/);
+});
+
 test('выход завершает сессию', async () => {
   const c = await login('nika');
   await call('/api/auth/logout', { method: 'POST', cookie: c });

@@ -29,9 +29,7 @@ function currentTab(g) {
       <div class="scale marks"><div class="s2">2</div><div class="s3" style="grid-column:span 2">3</div><div class="s4" style="grid-column:span 2">4</div><div class="s5">5</div></div>
       <div class="legend" style="margin-top:14px"><span><i class="sw"></i>рейтинг</span><span><i class="sw tick"></i>автомат / допуск</span></div>
     </div>
-    <div class="card"><div class="card-h"><h2>Как считается рейтинг</h2></div><div class="row wrap" style="gap:6px"><span class="chip">срезы ×1</span><span class="chip">посещаемость ×0,5</span><span class="chip">работа на парах ×0,3</span></div>
-      <div class="rule-row"><span class="lbl">Зачет</span><span class="chip ok">автомат от 70</span><span class="chip">ниже 70 — выход на зачет</span></div>
-      <div class="rule-row"><span class="lbl">Экзамен</span><span class="chip">допуск от 50</span><span class="chip">итог: 60% рейтинг + 40% ответ</span></div></div>
+    <div class="card"><div class="card-h"><h2>Пороги</h2></div><div class="row wrap" style="gap:8px"><span class="chip ok">автомат от 70 баллов</span><span class="chip">допуск к экзамену от 50 баллов</span></div></div>
   </div>
   <div class="section-title">Семестр ${g.semester} · ${g.current.length} ${plural(g.current.length, 'дисциплина', 'дисциплины', 'дисциплин')}</div>
   <div class="grid c2" style="align-items:start">${g.current.map(disciplineCard).join('')}</div>`;

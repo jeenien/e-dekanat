@@ -606,3 +606,8 @@ body::after { width: 40vmax; height: 40vmax; right: -10vmax; bottom: -12vmax; ba
 .wl-cluster { grid-template-columns: 1fr !important; gap: 4px; }
 .wl-cluster > .wl:nth-child(2) { margin-left: 8px; } .wl-cluster > .wl:nth-child(n+3) { margin-left: 16px; }
 .wl-cluster .wl { box-shadow: 0 2px 8px rgba(15, 26, 51, .08); }
+
+/* Круглые кнопки-иконки: без квадратной подсветки при наведении */
+.icon-btn { border-radius: 50%; transition: background .15s, color .15s; }
+.icon-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
+.tabbar .badge-dot { font-size: 0; }

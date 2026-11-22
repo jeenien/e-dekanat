@@ -15,7 +15,7 @@
 - `server/documents.js` — справки с QR и страница `/verify/:code`. `server/assistant.js` — помощник (Claude или локальные правила).
 - `server/seed.js` — демо-данные; даты считаются от «сегодня». `server/schedule-data.js` — расписание групп по открытым данным вуза (без ФИО преподавателей).
 - `server/campus-api.js` — мероприятия (лента, календарь, пересечения), задания к парам, кабинет преподавателя (роль `teacher`), согласование переносов деканатом. `server/statements.js` — типовые заявления в PDF (pdfkit, шрифт Liberation Serif, OFL).
-- `server/lite.js` — облегченная версия `/lite` без JavaScript; права те же, что в API. `public/js/boot.js` предлагает ее при медленной загрузке.
+- `server/lite.js` — облегченная версия `/lite` без JavaScript; права те же, что в API. Действия с заявками и переносами — в `server/workflows.js`, общем для обеих версий. `public/js/boot.js` предлагает ее при медленной загрузке.
 - Время пар и шкала оценок (проценты → 5-балльная → ECTS) — в `server/academic.js`.
 - `public/js/views/*.js` — экраны. `public/js/lib.js` — `esc()`, `icon()`, `api()`, даты, тосты, модальные окна.
 
@@ -32,7 +32,7 @@
 
 ## Проверка перед коммитом
 ```bash
-npm test                 # 20 тестов: безопасность и ключевые сценарии
+npm test                 # 21 тест: безопасность и ключевые сценарии
 npm run reset-db && npm start &   # затем:
 npm run screenshots      # сквозной прогон в браузере + скриншоты в docs/screenshots
 ```

@@ -123,7 +123,7 @@ function renderShell() {
   app.innerHTML = `${CONCEPT}<div class="shell">
     <aside class="sidebar">
       <div class="brand">${LOGO}<div><b>Орбита</b><small>цифровой деканат</small></div></div>
-      <nav aria-label="Основное меню">${navSide().map(([h, i, t]) => `<a href="${h}" data-nav="${h}">${icon(i)}<span>${t}</span>${h === '#/notifications' ? '<span class="count" hidden></span>' : ''}</a>`).join('')}</nav>
+      <nav aria-label="Основное меню">${navSide().map(([h, i, t]) => `<a href="${h}" data-nav="${h}">${icon(i)}<span>${t}</span><span class="count" data-badge="${h}" hidden></span></a>`).join('')}</nav>
       <div class="sb-foot">
         <button class="btn ghost block" data-act="palette">${icon('search')} Найти <span class="kbd" style="margin-left:auto">Ctrl K</span></button>
         <a class="me" href="#/profile"><div class="avatar sm">${esc(initials(u))}</div><div class="grow"><b class="ellipsis" style="display:block">${esc(u.first_name)} ${esc(u.last_name)}</b><small>${u.role !== 'student' ? esc(u.position || 'Деканат') : `${esc(u.group)} · ${u.course} курс`}</small></div></a>
@@ -141,7 +141,7 @@ function renderShell() {
       </header>
       <main id="main" tabindex="-1"></main>
     </div>
-    <nav class="tabbar" aria-label="Нижнее меню">${nav().map(([h, i, t]) => `<a href="${h}" data-nav="${h}">${icon(i)}<span>${t}</span></a>`).join('')}</nav>
+    <nav class="tabbar" aria-label="Нижнее меню">${nav().map(([h, i, t]) => `<a href="${h}" data-nav="${h}">${icon(i)}<span>${t}</span><i class="badge-dot" data-badge="${h}" hidden></i></a>`).join('')}</nav>
     ${u.role === 'student' ? `<button class="fab" data-act="assistant" aria-label="Спросить помощника Орбиту">${icon('sparkles')}<span>Спросить</span></button>` : ''}
   </div>`;
   app.querySelectorAll('[data-act="theme"]').forEach((b) => b.onclick = toggleTheme);
@@ -150,11 +150,16 @@ function renderShell() {
 }
 
 export async function refreshBadges() {
+  const counts = {};
   try {
     const list = await api('/notifications');
     state.unread = list.filter((n) => !n.read).length;
+    counts['#/notifications'] = state.unread;
+    // Заявки преподавателей на перенос пар ждут решения деканата
+    if (state.user.role === 'staff') counts['#/staff/schedule'] = (await api('/staff/reschedules')).filter((x) => x.status === 'pending').length;
+    if (state.user.role === 'teacher') counts['#/teacher/reschedules'] = (await api('/teacher/reschedules')).filter((x) => x.status === 'pending').length;
   } catch { return; }
-  document.querySelectorAll('.sidebar .count').forEach((c) => { c.hidden = !state.unread; c.textContent = state.unread; });
+  document.querySelectorAll('[data-badge]').forEach((c) => { const n = counts[c.dataset.badge] || 0; c.hidden = !n; c.textContent = n; });
   document.querySelectorAll('.topbar .dot').forEach((c) => { c.hidden = !state.unread; c.textContent = state.unread > 9 ? '9+' : state.unread; });
 }
 
@@ -255,6 +260,7 @@ export async function logout() {
 }
 
 window.addEventListener('hashchange', route);
+window.addEventListener('orbita:badges', () => refreshBadges());
 window.addEventListener('scroll', () => document.querySelector('.topbar')?.classList.toggle('scrolled', window.scrollY > 4), { passive: true });
 window.addEventListener('orbita:logout', () => { if (state.user) { state.user = null; renderLogin('Сессия истекла — войдите снова'); } });
 document.addEventListener('keydown', (e) => {
